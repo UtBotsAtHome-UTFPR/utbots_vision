@@ -20,3 +20,6 @@ OBS: se vc fizer os passos I e II, terá 2 instalações distintas do darknet; o
 
 - III) Para rodar com o pacote usb_cam (webcam):
     - ```roslaunch apollo_vision darknet_webcam.launch```
+
+- IV) Para abrir o rviz:
+    - ```roslaunch apollo_vision rviz.launch```
