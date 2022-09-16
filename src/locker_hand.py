@@ -144,10 +144,10 @@ class LockHand():
                 # Not writeable passes by reference (more performance)
                 image.flags.writeable = False
 
-                # Image processing (finds hands)
+                # Image processing
                 results = hands.process(image)
 
-                # Draw the hand annotations on the image
+                # To draw the hand annotations on the image
                 image.flags.writeable = True
 
                 # Back to BGR
