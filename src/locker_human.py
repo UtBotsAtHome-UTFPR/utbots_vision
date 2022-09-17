@@ -50,8 +50,8 @@ class LockPose():
 
         # Calls main loop
         self.pose = self.mp_pose.Pose(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5)
+            min_detection_confidence=0.75,
+            min_tracking_confidence=0.9)
         self.mainLoop()
 
     def callback_rgbImg(self, msg):
