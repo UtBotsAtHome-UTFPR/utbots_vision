@@ -1,16 +1,20 @@
 #!/usr/bin/env python
 import cv2
-from cv_bridge import CvBridge, CvBridgeError
+from cv_bridge import CvBridge
 import mediapipe as mp
 import numpy as np
 import rospy
 from std_msgs.msg import String
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import Image
+from math import pow, sqrt, tan, radians
 
 
 class LockPose():
-    def __init__(self, topic_rgbImg, topic_depthImg):
+    def __init__(self, topic_rgbImg, topic_depthImg, camFov_vertical, camFov_horizontal):
+        # Image FOV for trig calculations
+        self.camFov_vertical = camFov_vertical
+        self.camFov_horizontal = camFov_horizontal
 
         # Messages
         self.msg_targetStatus   = "?" # String
@@ -93,7 +97,7 @@ class LockPose():
             self.mp_pose.POSE_CONNECTIONS,
             landmark_drawing_spec=self.mp_drawing_styles.get_default_pose_landmarks_style())
 
-    # Gets points for torso (shoulders and hips)
+    ''' Gets points for torso (shoulders and hips) '''
     def GetTorsoPoints(self, landmark):
         rightShoulder = Point(
             landmark[self.mp_pose.PoseLandmark.RIGHT_SHOULDER].x, 
@@ -113,15 +117,17 @@ class LockPose():
             landmark[self.mp_pose.PoseLandmark.LEFT_HIP].z)
         return [rightShoulder, leftShoulder, rightHip, leftHip]
 
-    def GetPointsCenter(self, points):
+    def GetPointsMean(self, points):
         sum_x = 0
         sum_y = 0
+        sum_z = 0
         counter = 0
         for point in points:
             sum_x = sum_x + point.x
             sum_y = sum_y + point.y
+            sum_z = sum_z + point.z
             counter = counter + 1
-        return Point(sum_x/counter, sum_y/counter, 0)
+        return Point(sum_x/counter, sum_y/counter, sum_z/counter)
 
     def CropTorsoImg(self, img, imgEncoding, torsoPoints, torsoCenter):
         if imgEncoding == "32FC1":
@@ -149,6 +155,51 @@ class LockPose():
 
         depthMean = np.mean(rowMeans)
         return depthMean
+
+    ''' By using rule of three and considering the FOV of the camera:
+            - Calculates the 3D point of a depth pixel '''
+    def Get3dPointFromDepthPixel(self, pixelPoint, depth):
+
+        # Constants
+        maxAngle_x = self.camFov_horizontal/2
+        maxAngle_y = self.camFov_vertical/2
+        screenMax_x = 1.0
+        screenMax_y = 1.0
+        screenCenter_x = screenMax_x / 2.0
+        screenCenter_y = screenMax_y / 2.0
+
+        # Distances to screen center
+        distanceToCenter_x = pixelPoint.x - screenCenter_x
+        distanceToCenter_y = pixelPoint.y - screenCenter_y
+
+        # Horizontal angle (xz plane)
+        xz_angle_deg = maxAngle_x * distanceToCenter_x / screenCenter_x
+        xz_angle_rad = radians(xz_angle_deg)
+        
+        # Vertical angle (yz plane)
+        yz_angle_deg = maxAngle_y * distanceToCenter_y / screenCenter_y
+        yz_angle_rad = radians(yz_angle_deg)
+
+        # Coordinates
+        num = depth
+        denom = sqrt(1 + pow(tan(xz_angle_rad), 2) + pow(tan(yz_angle_rad), 2))
+        z = num / denom
+        x = z * tan(xz_angle_rad)
+        y = z * tan(yz_angle_rad)
+
+        # Corrections
+        x = -x
+        y = -y
+
+        # print("depth: {}".format(depth))
+        # print("distancesToCenter: ({}, {})".format(distanceToCenter_x, distanceToCenter_y))
+        # print("angles: ({}, {})".format(xz_angle_deg, yz_angle_deg))
+        # print("xyz: ({}, {}, {})".format(x, y, z))
+
+        return Point(x, y, z)
+
+    def XyzToZxy(self, point):
+        return Point(point.z, point.x, point.y)        
 
     def PublishEverything(self):
         self.pub_targetStatus.publish(self.msg_targetStatus)
@@ -179,9 +230,7 @@ class LockPose():
                 # If found landmarks...
                 if poseResults.pose_landmarks:
                     torsoPoints = self.GetTorsoPoints(poseResults.pose_landmarks.landmark)
-                    torsoCenter = self.GetPointsCenter(torsoPoints)
-                    self.msg_point = torsoCenter
-                    self.msg_targetStatus = "Located"
+                    torsoCenter = self.GetPointsMean(torsoPoints)
 
                     cv_depthImg = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
                     cv2.imshow("depth Img", cv_depthImg)
@@ -190,14 +239,18 @@ class LockPose():
                         croppedRgbImg = self.CropTorsoImg(cv_rgbImg, "passthrough", torsoPoints, torsoCenter)
                         cv2.imshow("Cropped RGB", croppedRgbImg)
                     except:
+                        print("------------- Error in RGB crop -------------")
                         continue
                     try:
                         croppedDepthImg = self.CropTorsoImg(cv_depthImg, "32FC1", torsoPoints, torsoCenter)
                         cv2.imshow("Cropped Depth", croppedDepthImg)
-                        torsoCenter.z = self.GetTorsoDistance(croppedDepthImg)
-                        self.msg_targetPoint = torsoCenter
-                        self.msg_targetPoint = Point(torsoCenter.z, 0, 0)
+                        torsoCenter3d = self.Get3dPointFromDepthPixel(torsoCenter, self.GetTorsoDistance(croppedDepthImg))
+                        torsoCenter3dTf = self.XyzToZxy(torsoCenter3d)
+                        # self.msg_targetPoint = Point(self.GetTorsoDistance(croppedDepthImg), 0, 0)
+                        self.msg_targetPoint = torsoCenter3dTf
+                        self.msg_targetStatus = "Located"
                     except:
+                        print("------------- Error in depth crop -------------")
                         continue
 
                 # Nothing detected...
@@ -209,4 +262,8 @@ class LockPose():
                         self.msg_targetStatus = "?"
 
 if __name__ == "__main__":
-    lockHand = LockPose("/camera/rgb/image_raw", "/camera/depth_registered/image_raw")
+    lockHand = LockPose(
+        "/camera/rgb/image_raw",
+        "/camera/depth_registered/image_raw",
+        43,
+        57)
