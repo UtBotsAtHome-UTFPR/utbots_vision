@@ -5,8 +5,8 @@ from sensor_msgs.msg import Image
 from vision_msgs.msg import BoundingBox2D
 from math import radians, sqrt, tan
 import numpy as np
-
 import cv2
+from cv_bridge import CvBridge
 
 class DepthEstimatorNode():
     def __init__(self, topic_point, topic_depthImg, topic_boundingBox, camFov_vertical, camFov_horizontal):
@@ -39,6 +39,9 @@ class DepthEstimatorNode():
             self.callback_boundingBox,
             queue_size=1)
 
+        # Cv
+        self.cvBridge = CvBridge()
+
         # ROS node
         rospy.init_node('depth_estimator', anonymous=True)
 
@@ -63,14 +66,17 @@ class DepthEstimatorNode():
         else:
             imageHeight, imageWidth, a = img.shape
 
-        boxWidth = max(abs(boxWidth), 2)
-        boxHeight = max(abs(boxHeight), 2)
+        boxWidth = max(abs(boxWidth*imageWidth), 2)
+        boxHeight = max(abs(boxHeight*imageHeight), 2)
 
         x0 = max(int(boxCenter.x * imageWidth - boxWidth/2), 0)
         y0 = max(int(boxCenter.y * imageHeight - boxHeight/2), 0)
 
-        xf = max(int(boxCenter.x * imageWidth + boxWidth/2), imageWidth)
-        yf = max(int(boxCenter.y * imageHeight + boxHeight/2), imageHeight)
+        xf = min(int(boxCenter.x * imageWidth + boxWidth/2), imageWidth)
+        yf = min(int(boxCenter.y * imageHeight + boxHeight/2), imageHeight)
+
+        print(imageWidth, imageHeight)
+        print(x0, y0, xf, yf)
 
         cropped_img = img[y0:yf, x0:xf]
         return cropped_img
@@ -133,18 +139,20 @@ class DepthEstimatorNode():
             if self.newDepthImg == True and self.newBoundingBox == True:
                 self.newDepthImg = False
                 self.newBoundingBox = False
+                cv_depthImg = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
 
                 try:
                     croppedDepthImg = self.CropDepthImg(
-                        self.msg_depthImg,
+                        cv_depthImg,
                         "32FC1",
                         self.msg_boundingBox.center,
                         self.msg_boundingBox.size_x,
                         self.msg_boundingBox.size_y)
 
-                    cv2.imshow("Cropped Depth", croppedDepthImg)
                     if cv2.waitKey(5) & 0xFF == 27:
                         break
+                    cv2.imshow("Cropped Depth", croppedDepthImg)
+                    
 
                     averageDepth = self.GetAverageDepth(croppedDepthImg)
 
@@ -153,6 +161,7 @@ class DepthEstimatorNode():
                         averageDepth)
                     self.msg_point = self.XyzToZxy(self.msg_point)
                     self.pub_point.publish(self.msg_point)
+                    rospy.loginfo(self.msg_point)
 
                 except:
                     print("------------- Error in depth crop -------------")
