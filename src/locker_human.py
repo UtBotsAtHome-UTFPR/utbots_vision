@@ -5,10 +5,14 @@ import mediapipe as mp
 import numpy as np
 import rospy
 from std_msgs.msg import String
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import PointStamped, Point, TransformStamped
 from sensor_msgs.msg import Image
 from math import pow, sqrt, tan, radians
 
+
+from tf.msg import tfMessage
+from geometry_msgs.msg import TransformStamped
+from tf.transformations import quaternion_from_euler
 
 class LockPose():
     def __init__(self, topic_rgbImg, topic_depthImg, camFov_vertical, camFov_horizontal):
@@ -17,20 +21,33 @@ class LockPose():
         self.camFov_horizontal = camFov_horizontal
 
         # Messages
-        self.msg_targetStatus   = "?" # String
-        self.msg_targetPoint    = Point()   # Point
-        self.msg_rgbImg         = None      # Image
-        self.msg_depthImg       = None      # Image
+        self.msg_tfStamped              = TransformStamped()
+        self.msg_targetStatus           = "?" # String
+        self.msg_targetPoint            = PointStamped()   # Point
+        self.msg_targetPoint.header.frame_id = "target"
+        self.msg_targetCroppedRgbImg    = Image()
+        self.msg_targetCroppedDepthImg  = Image()
+        self.msg_targetSkeletonImg      = Image()
+        self.msg_rgbImg                 = None      # Image
+        self.msg_depthImg               = None      # Image
 
         # To tell if there's a new msg
         self.newRgbImg = False
         self.newDepthImg = False
 
         # Publishers and Subscribers
+        self.pub_tf = rospy.Publisher(
+            "/tf", tfMessage, queue_size=1)
         self.pub_targetStatus = rospy.Publisher(
             "/apollo/vision/lock/target/status", String, queue_size=10)
         self.pub_targetPoint = rospy.Publisher(
-            "/apollo/vision/lock/target/point", Point, queue_size=10)
+            "/apollo/vision/lock/target/point", PointStamped, queue_size=10)
+        self.pub_targetCroppedRgbImg = rospy.Publisher(
+            "/apollo/vision/lock/target/rgb", Image, queue_size=10)
+        self.pub_targetCroppedDepthImg = rospy.Publisher(
+            "/apollo/vision/lock/target/depth", Image, queue_size=10)
+        self.pub_targetSkeletonImg = rospy.Publisher(
+            "/apollo/vision/lock/target/skeletonImage", Image, queue_size=10)
         self.sub_rgbImg = rospy.Subscriber(
             topic_rgbImg, Image, self.callback_rgbImg)
         self.sub_depthImg = rospy.Subscriber(
@@ -181,9 +198,9 @@ class LockPose():
         yz_angle_rad = radians(yz_angle_deg)
 
         # Coordinates
-        num = depth
+        num = depth / 1000
         denom = sqrt(1 + pow(tan(xz_angle_rad), 2) + pow(tan(yz_angle_rad), 2))
-        z = num / denom
+        z = (num / denom)
         x = z * tan(xz_angle_rad)
         y = z * tan(yz_angle_rad)
 
@@ -199,11 +216,30 @@ class LockPose():
         return Point(x, y, z)
 
     def XyzToZxy(self, point):
-        return Point(point.z, point.x, point.y)        
+        return Point(point.z, point.x, point.y)   
+
+    def SetupTfMsg(self, x, y, z):
+        self.msg_tfStamped.header.frame_id = "camera_link"
+        self.msg_tfStamped.header.stamp = rospy.Time.now()
+        self.msg_tfStamped.child_frame_id = "target"
+        self.msg_tfStamped.transform.translation.x = 0
+        self.msg_tfStamped.transform.translation.y = 0
+        self.msg_tfStamped.transform.translation.z = 0
+        self.msg_tfStamped.transform.rotation.x = 0.0
+        self.msg_tfStamped.transform.rotation.y = 0.0
+        self.msg_tfStamped.transform.rotation.z = 0.0
+        self.msg_tfStamped.transform.rotation.w = 1.0
+
+        msg_tf = tfMessage([self.msg_tfStamped])
+        self.pub_tf.publish(msg_tf)
 
     def PublishEverything(self):
+        self.pub_targetCroppedRgbImg.publish(self.msg_targetCroppedRgbImg)
+        self.pub_targetCroppedDepthImg.publish(self.msg_targetCroppedDepthImg)
         self.pub_targetStatus.publish(self.msg_targetStatus)
         self.pub_targetPoint.publish(self.msg_targetPoint)
+        self.pub_targetSkeletonImg.publish(self.msg_targetSkeletonImg)
+        # self.SetupTfMsg(self.msg_targetPoint.point.x, self.msg_targetPoint.point.y, self.msg_targetPoint.point.z)
 
     def mainLoop(self):
         while rospy.is_shutdown() == False:
@@ -212,9 +248,9 @@ class LockPose():
             print("\nTARGET")
             print(" - status: {}".format(self.msg_targetStatus))
             print(" - xyz: ({}, {}, {})".format(
-                self.msg_targetPoint.x, 
-                self.msg_targetPoint.y, 
-                self.msg_targetPoint.z))
+                self.msg_targetPoint.point.x, 
+                self.msg_targetPoint.point.y, 
+                self.msg_targetPoint.point.z))
                 
             # Else -> new RGB and new depth are true...
             if self.newRgbImg == True and self.newDepthImg == True:
@@ -223,7 +259,8 @@ class LockPose():
 
                 cv_rgbImg, poseResults = self.ProcessImg(self.msg_rgbImg)
                 self.DrawLandmarks(cv_rgbImg, poseResults)
-                cv2.imshow('MediaPipe Pose', cv_rgbImg)
+                self.msg_targetSkeletonImg = self.cvBridge.cv2_to_imgmsg(cv_rgbImg)
+                # cv2.imshow('MediaPipe Pose', cv_rgbImg)
                 if cv2.waitKey(5) & 0xFF == 27:
                     break
 
@@ -233,21 +270,23 @@ class LockPose():
                     torsoCenter = self.GetPointsMean(torsoPoints)
 
                     cv_depthImg = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
-                    cv2.imshow("depth Img", cv_depthImg)
+                    # cv2.imshow("depth Img", cv_depthImg)
 
                     try:
                         croppedRgbImg = self.CropTorsoImg(cv_rgbImg, "passthrough", torsoPoints, torsoCenter)
-                        cv2.imshow("Cropped RGB", croppedRgbImg)
+                        self.msg_targetCroppedRgbImg = self.cvBridge.cv2_to_imgmsg(croppedRgbImg)
+                        # cv2.imshow("Cropped RGB", croppedRgbImg)
                     except:
                         print("------------- Error in RGB crop -------------")
                         continue
                     try:
                         croppedDepthImg = self.CropTorsoImg(cv_depthImg, "32FC1", torsoPoints, torsoCenter)
-                        cv2.imshow("Cropped Depth", croppedDepthImg)
+                        self.msg_targetCroppedDepthImg = self.cvBridge.cv2_to_imgmsg(croppedDepthImg)
+                        # cv2.imshow("Cropped Depth", croppedDepthImg)
                         torsoCenter3d = self.Get3dPointFromDepthPixel(torsoCenter, self.GetTorsoDistance(croppedDepthImg))
-                        torsoCenter3dTf = self.XyzToZxy(torsoCenter3d)
+                        torsoCenter3d = self.XyzToZxy(torsoCenter3d)
                         # self.msg_targetPoint = Point(self.GetTorsoDistance(croppedDepthImg), 0, 0)
-                        self.msg_targetPoint = torsoCenter3dTf
+                        self.msg_targetPoint.point = torsoCenter3d
                         self.msg_targetStatus = "Located"
                     except:
                         print("------------- Error in depth crop -------------")
@@ -258,7 +297,7 @@ class LockPose():
                     t_now = rospy.get_time()
                     if (t_now - self.t_last > self.t_timeout and self.msg_targetStatus != "?"):
                         self.t_last = t_now
-                        self.msg_targetPoint = Point(0, 0, 0)
+                        self.msg_targetPoint.point = Point(0, 0, 0)
                         self.msg_targetStatus = "?"
 
 if __name__ == "__main__":

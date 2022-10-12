@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from tkinter import mainloop
 import rospy
-from geometry_msgs.msg import Point
 from sensor_msgs.msg import Image
 from vision_msgs.msg import BoundingBox2D
 from geometry_msgs.msg import Pose2D
