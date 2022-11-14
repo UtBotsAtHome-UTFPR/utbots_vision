@@ -2,7 +2,7 @@
 import rospy
 from geometry_msgs.msg import Point
 from sensor_msgs.msg import Image
-from vision_msgs.msg import BoundingBox2D
+from darknet_ros_msgs.msg import BoundingBoxes
 from math import radians, sqrt, tan
 import numpy as np
 import cv2
@@ -31,11 +31,13 @@ class DepthEstimatorNode():
             queue_size=1)
 
         # Subscribed bounding box
-        self.msg_boundingBox = None
+        self.msg_boundingBox_center = None
+        self.msg_boundingBox_x_size = None
+        self.msg_boundingBox_y_size = None
         self.newBoundingBox = False
         self.sub_boundingBox = rospy.Subscriber(
             topic_boundingBox,
-            BoundingBox2D,
+            BoundingBoxes,
             self.callback_boundingBox,
             queue_size=1)
 
@@ -57,7 +59,15 @@ class DepthEstimatorNode():
         self.newDepthImg = True
 
     def callback_boundingBox(self, msg):
-        self.msg_boundingBox = msg
+        for box in msg.bounding_boxes:
+            rospy.loginfo(
+                "Xmin: {}, Xmax: {} Ymin: {}, Ymax: {}, Center: {}:{}".format(
+                    box.xmin, box.xmax, box.ymin, box.ymax, int((box.xmax + box.xmin)/2), int((box.ymax + box.ymin)/2)
+                )
+            )
+            self.msg_boundingBox_size_x = box.xmax - box.xmin
+            self.msg_boundingBox_size_y = box.ymax - box.ymin
+            self.msg_boundingBox_center = Point(int((box.xmax + box.xmin)/2), int((box.ymax + box.ymin)/2), 0)
         self.newBoundingBox = True
 
     def CropDepthImg(self, img, imgEncoding, boxCenter, boxWidth, boxHeight):
@@ -145,9 +155,9 @@ class DepthEstimatorNode():
                     croppedDepthImg = self.CropDepthImg(
                         cv_depthImg,
                         "32FC1",
-                        self.msg_boundingBox.center,
-                        self.msg_boundingBox.size_x,
-                        self.msg_boundingBox.size_y)
+                        self.msg_boundingBox_center,
+                        self.msg_boundingBox_size_x,
+                        self.msg_boundingBox_size_y)
 
                     if cv2.waitKey(5) & 0xFF == 27:
                         break
@@ -157,7 +167,7 @@ class DepthEstimatorNode():
                     averageDepth = self.GetAverageDepth(croppedDepthImg)
 
                     self.msg_point = self.Get3dPointFromDepthPixel(
-                        self.msg_boundingBox.center, 
+                        self.msg_boundingBox_center, 
                         averageDepth)
                     self.msg_point = self.XyzToZxy(self.msg_point)
                     self.pub_point.publish(self.msg_point)
@@ -171,6 +181,6 @@ if __name__ == '__main__':
     DepthEstimatorNode(
         "/apollo/vision/depth_estimator/point", 
         "/apollo/vision/depth_estimator/depth",
-        "/apollo/vision/depth_estimator/box",
+        "darknet_ros/bounding_boxes",
         43,
         57)
