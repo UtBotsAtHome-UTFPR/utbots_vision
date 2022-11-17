@@ -9,6 +9,8 @@ import cv2
 from cv_bridge import CvBridge
 
 class DepthEstimatorNode():
+    boundingBox = None
+
     def __init__(self, topic_point, topic_depthImg, topic_boundingBox, camFov_vertical, camFov_horizontal):
         # Image FOV for trig calculations
         self.camFov_vertical = camFov_vertical
@@ -31,9 +33,10 @@ class DepthEstimatorNode():
             queue_size=1)
 
         # Subscribed bounding box
-        self.msg_boundingBox_center = None
-        self.msg_boundingBox_x_size = None
-        self.msg_boundingBox_y_size = None
+        self.boundingBox.msg = None
+        self.boundingBox.center = None
+        self.boundingBox.x_size = 0
+        self.boundingBox.y_size = 0
         self.newBoundingBox = False
         self.sub_boundingBox = rospy.Subscriber(
             topic_boundingBox,
@@ -57,18 +60,21 @@ class DepthEstimatorNode():
     def callback_depthImg(self, msg):
         self.msg_depthImg = msg
         self.newDepthImg = True
+        # rospy.loginfo("- Depth: new msg")
 
     def callback_boundingBox(self, msg):
+        self.boundingBox.msg = msg
+        self.newBoundingBox = True
+        rospy.loginfo("- RGB: new bounding box array")
         for box in msg.bounding_boxes:
             rospy.loginfo(
                 "Xmin: {}, Xmax: {} Ymin: {}, Ymax: {}, Center: {}:{}".format(
                     box.xmin, box.xmax, box.ymin, box.ymax, int((box.xmax + box.xmin)/2), int((box.ymax + box.ymin)/2)
                 )
             )
-            self.msg_boundingBox_size_x = box.xmax - box.xmin
-            self.msg_boundingBox_size_y = box.ymax - box.ymin
-            self.msg_boundingBox_center = Point(int((box.xmax + box.xmin)/2), int((box.ymax + box.ymin)/2), 0)
-        self.newBoundingBox = True
+            self.boundingBox.size_x = box.xmax - box.xmin
+            self.boundingBox.size_y = box.ymax - box.ymin
+            self.boundingBox.center = Point(int((box.xmax + box.xmin)/2), int((box.ymax + box.ymin)/2), 0)
 
     def CropDepthImg(self, img, imgEncoding, boxCenter, boxWidth, boxHeight):
         if imgEncoding == "32FC1":
@@ -85,8 +91,8 @@ class DepthEstimatorNode():
         xf = min(int(boxCenter.x * imageWidth + boxWidth/2), imageWidth)
         yf = min(int(boxCenter.y * imageHeight + boxHeight/2), imageHeight)
 
-        print(imageWidth, imageHeight)
-        print(x0, y0, xf, yf)
+        rospy.loginfo(imageWidth, imageHeight)
+        rospy.loginfo(x0, y0, xf, yf)
 
         cropped_img = img[y0:yf, x0:xf]
         return cropped_img
@@ -145,25 +151,28 @@ class DepthEstimatorNode():
     def mainLoop(self):
         while rospy.is_shutdown() == False:
             self.loopRate.sleep()
-
-            if self.newDepthImg == True and self.newBoundingBox == True:
+            if self.newDepthImg == True: #and self.newBoundingBox == True:
+                # rospy.loginfo("1 - new bb and depth")
                 self.newDepthImg = False
                 self.newBoundingBox = False
                 cv_depthImg = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
 
                 try:
+                    # rospy.loginfo("2 - attempting crop")
                     croppedDepthImg = self.CropDepthImg(
                         cv_depthImg,
                         "32FC1",
                         self.msg_boundingBox_center,
                         self.msg_boundingBox_size_x,
                         self.msg_boundingBox_size_y)
+                    rospy.loginfo("3 - cropped")
 
                     if cv2.waitKey(5) & 0xFF == 27:
+                        rospy.loginfo("E - breaking")
                         break
                     cv2.imshow("Cropped Depth", croppedDepthImg)
                     
-
+                    rospy.loginfo("4 - averaging depth")
                     averageDepth = self.GetAverageDepth(croppedDepthImg)
 
                     self.msg_point = self.Get3dPointFromDepthPixel(
@@ -180,7 +189,7 @@ class DepthEstimatorNode():
 if __name__ == '__main__':
     DepthEstimatorNode(
         "/apollo/vision/depth_estimator/point", 
-        "/apollo/vision/depth_estimator/depth",
+        "/camera/depth_registered/image_raw",
         "darknet_ros/bounding_boxes",
         43,
         57)
