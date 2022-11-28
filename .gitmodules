@@ -1,3 +1,6 @@
 [submodule "darknet_ros"]
 	path = darknet_ros
 	url = https://github.com/leggedrobotics/darknet_ros.git
+[submodule "mediapipe_track"]
+	path = mediapipe_track
+	url = https://github.com/UtBotsAtHome-UTFPR/mediapipe_track.git
