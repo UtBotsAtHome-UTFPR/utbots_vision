@@ -1,6 +1,4 @@
 [submodule "darknet_ros"]
 	path = darknet_ros
 	url = https://github.com/leggedrobotics/darknet_ros.git
-[submodule "img_converter"]
-	path = img_converter
-	url = https://github.com/UtBotsAtHome-UTFPR/img_converter.git
+
