@@ -1,2 +1,5 @@
 
 
+[submodule "darknet_ros"]
+	path = darknet_ros
+	url = https://github.com/gustavo-fardo/darknet_ros.git
