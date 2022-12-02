@@ -5,8 +5,14 @@ This stack contains vision related packages such as:
 - mediapipe_track
 
 ## Installation
-```git clone --recurse-submodules https://github.com/UtBot-UTFPR/apollo_vision.git```
 
+    cd catkin_ws/src
+    git clone --recurse-submodules https://github.com/UtBot-UTFPR/apollo_vision.git`
+    cd ../
+
+## Building
+
+    catkin_make -DCMAKE_BUILD_TYPE=Release
 
 ## darknet_ros
 
@@ -33,3 +39,31 @@ roslaunch darknet_ros kinect.launch
 ``
 
 Detailed information can be found in the [link](https://github.com/gustavo-fardo/darknet_ros)
+
+## img_converter
+
+Changes the encoding of a sensor_msgs::Image to an opencv acceptable RGB8 format
+
+### Dependencies
+
+This package depends on [OpenCV](http://opencv.org/) (computer vision library).
+
+### Running
+
+``rosrun img_converter img_converter``
+
+### Topics
+
+*Subscribed Topics*
+
+* **`/camera/rgb/image_raw`** ([sensor_msgs/Image])
+
+    The Kinect V1 camera image.
+
+*Published Topics*
+
+* **`/image_converter/output_video`** ([sensor_msgs/Image])
+
+    The converted image to RBG8 encoding
+
+## mediapipe_track
