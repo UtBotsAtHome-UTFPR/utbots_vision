@@ -54,13 +54,13 @@ This package depends on [OpenCV](http://opencv.org/) (computer vision library).
 
 ### Topics
 
-*Subscribed Topics*
+**Subscribed Topics**
 
 * **`/camera/rgb/image_raw`** ([sensor_msgs/Image])
 
     The Kinect V1 camera image.
 
-*Published Topics*
+**Published Topics**
 
 * **`/image_converter/output_video`** ([sensor_msgs/Image])
 
