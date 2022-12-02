@@ -28,15 +28,11 @@ This software is built on the Robotic Operating System ([ROS]), which needs to b
 
 **Webcam**
 
-``
-roslaunch darknet_ros darknet_ros.launch
-``
+        roslaunch darknet_ros darknet_ros.launch
 
 **Kinect V1**
 
-``
-roslaunch darknet_ros kinect.launch
-``
+        roslaunch darknet_ros kinect.launch
 
 Detailed information can be found in the [link](https://github.com/gustavo-fardo/darknet_ros)
 
@@ -50,7 +46,7 @@ This package depends on [OpenCV](http://opencv.org/) (computer vision library).
 
 ### Running
 
-``rosrun img_converter img_converter``
+        rosrun img_converter img_converter
 
 ### Topics
 
@@ -78,13 +74,13 @@ This package depends on [freenect_launch](https://github.com/ros-drivers/freenec
 
 First, run freenect:
 
-```
-roslaunch mediapipe_track freenect.launch
-```
+
+        roslaunch mediapipe_track freenect.launch
+
 
 Then, to run the pose tracking and 3D position algorithm, run 
 
-```
-roslaunch mediapipe_track locker_human.launch
-```
+
+        roslaunch mediapipe_track locker_human.launch
+
 
