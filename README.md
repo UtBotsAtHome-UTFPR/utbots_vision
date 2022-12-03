@@ -5,10 +5,11 @@ This stack contains vision related packages such as:
 - mediapipe_track
 
 ## Installation
-
+    ```bash
     cd catkin_ws/src
-    git clone --recurse-submodules https://github.com/UtBot-UTFPR/apollo_vision.git`
+    git clone --recurse-submodules https://github.com/UtBotsAtHome-UTFPR/utbots_vision.git
     cd ../
+    ```
 
 ## Building
 
@@ -28,11 +29,15 @@ This software is built on the Robotic Operating System ([ROS]), which needs to b
 
 **Webcam**
 
+    ```bash
     roslaunch darknet_ros darknet_ros.launch
+    ```
 
 **Kinect V1**
 
+    ```bash
     roslaunch darknet_ros kinect.launch
+    ```
 
 Detailed information can be found in the [link](https://github.com/gustavo-fardo/darknet_ros)
 
@@ -46,7 +51,9 @@ This package depends on [OpenCV](http://opencv.org/) (computer vision library).
 
 ### Running
 
+    ```bash
     rosrun img_converter img_converter
+    ```
 
 ### Topics
 
@@ -73,14 +80,10 @@ This package depends on [freenect_launch](https://github.com/ros-drivers/freenec
 ### Running
 
 First, run freenect:
-
-
+    ```bash
     roslaunch mediapipe_track freenect.launch
-
-
+    ```
 Then, to run the pose tracking and 3D position algorithm, run 
-
-
+    ```bash
     roslaunch mediapipe_track locker_human.launch
-
-
+    ```
