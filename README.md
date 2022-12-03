@@ -4,70 +4,67 @@ This stack contains vision related packages such as:
 - img_converter
 - mediapipe_track
 
-## Installation
+- ## Getting started
+    - ## Installation
     ```bash
     cd catkin_ws/src
     git clone --recurse-submodules https://github.com/UtBotsAtHome-UTFPR/utbots_vision.git
     cd ../
     ```
 
-## Building
-
+    - ## Building
+    ```bash
     catkin_make -DCMAKE_BUILD_TYPE=Release
-
-## darknet_ros
-
-### Dependencies
-
-This software is built on the Robotic Operating System ([ROS]), which needs to be [installed](http://wiki.ros.org) first. Additionally, YOLO for ROS depends on following software:
-
-- [OpenCV](http://opencv.org/) (computer vision library),
-- [boost](http://www.boost.org/) (c++ library),
-- [freenect_launch](https://github.com/ros-drivers/freenect_stack) (kinect camera package)
-
-### Running
-
-**Webcam**
-
-    ```bash
-    roslaunch darknet_ros darknet_ros.launch
     ```
+- ## Packages
+    - ## darknet_ros
+        - ### Dependencies
 
-**Kinect V1**
+            This software is built on the Robotic Operating System ([ROS]), which needs to be [installed](http://wiki.ros.org) first. Additionally, YOLO for ROS depends on following software:
 
-    ```bash
-    roslaunch darknet_ros kinect.launch
-    ```
+            - [OpenCV](http://opencv.org/) (computer vision library),
+            - [boost](http://www.boost.org/) (c++ library),
+            - [freenect_launch](https://github.com/ros-drivers/freenect_stack) (kinect camera package)
 
-Detailed information can be found in the [link](https://github.com/gustavo-fardo/darknet_ros)
+        - ### Running (detailed information can be found in the [link](https://github.com/gustavo-fardo/darknet_ros))
 
-## img_converter
+            - **Webcam**
+            ```bash
+            roslaunch darknet_ros darknet_ros.launch
+            ```
 
-Changes the encoding of a sensor_msgs::Image to an opencv acceptable RGB8 format
+            - **Kinect V1**
+            ```bash
+            roslaunch darknet_ros kinect.launch
+            ```
+            
+    - ## img_converter
 
-### Dependencies
+        Changes the encoding of a sensor_msgs::Image to an opencv acceptable RGB8 format
 
-This package depends on [OpenCV](http://opencv.org/) (computer vision library).
+        - ### Dependencies
 
-### Running
+            This package depends on [OpenCV](http://opencv.org/) (computer vision library).
 
-    ```bash
-    rosrun img_converter img_converter
-    ```
+        - ### Running
 
-### Topics
+            - ```bash
+            rosrun img_converter img_converter
+            ```
 
-**Subscribed Topics**
+        - ### Topics
 
-* **`/camera/rgb/image_raw`** ([sensor_msgs/Image])
+            - **Subscribed Topics**
 
-    The Kinect V1 camera image.
+                - **`/camera/rgb/image_raw`** ([sensor_msgs/Image])
 
-**Published Topics**
+                    The Kinect V1 camera image.
 
-* **`/image_converter/output_video`** ([sensor_msgs/Image])
+            - **Published Topics**
 
-    The converted image to RBG8 encoding
+                - **`/image_converter/output_video`** ([sensor_msgs/Image])
+
+                    The converted image to RBG8 encoding
 
 ## mediapipe_track
 
@@ -80,10 +77,11 @@ This package depends on [freenect_launch](https://github.com/ros-drivers/freenec
 ### Running
 
 First, run freenect:
-    ```bash
-    roslaunch mediapipe_track freenect.launch
-    ```
+```bash
+roslaunch mediapipe_track freenect.launch
+```
+
 Then, to run the pose tracking and 3D position algorithm, run 
-    ```bash
-    roslaunch mediapipe_track locker_human.launch
-    ```
+```bash
+roslaunch mediapipe_track locker_human.launch
+```
