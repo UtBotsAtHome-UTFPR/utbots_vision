@@ -5,17 +5,18 @@ This stack contains vision related packages such as:
 - mediapipe_track
 
 ## Getting started
-## Installation
+### Installation
 ```bash 
 cd catkin_ws/src
 git clone --recurse-submodules https://github.com/UtBotsAtHome-UTFPR/utbots_vision.git
 cd ../
 ```
 
-## Building
+### Building
 ```bash
 catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
+
 ## darknet_ros
 ### Dependencies
 
