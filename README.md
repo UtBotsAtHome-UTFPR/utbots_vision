@@ -1,9 +1,9 @@
-- ##### This stack contains vision related packages, such as:
+- **This stack contains vision related packages, such as:**
     - darknet_ros
     - img_converter
     - mediapipe_track
 
-- ## Getting started
+- ### Getting started
     - ### Installation
         ```bash 
         cd catkin_ws/src
@@ -11,35 +11,11 @@
         cd ../
         ```
 
-    - ### Building
+    - #### Building
         ```bash
         catkin_make -DCMAKE_BUILD_TYPE=Release
         ```
-
-    - ### Mediapipe dependencies
-        - **Only for Jetson Nano + Ubuntu 18**
-            - Install Python 3.9 and virtualenv
-                ```bash
-                sudo add-apt-repository ppa:deadsnakes/ppa # Repository with many Python versions
-                sudo apt update
-                sudo apt install python3.9 python3.9-venv -y
-                python3.9 -m pip install virtualenv
-                PY_LOCATION=$(which python3.9)
-                roscd mediapipe_track/src
-                python3.9 -m virtualenv venv --python=$PY_LOCATION # Create virtual env
-                ```
-            - You should **only use Mediapipe with the virtual Python executable**
-                ```bash
-                source venv/bin/activate    # Enter virtual env
-                python --version            # Check Python version
-                which python                # Check where Python executable is
-                python locker_human.py      # Instead of "rosrun mediapipe_track locker_human.py"
-                ```
-        - **Pip requirements**
-            ```bash
-            roscd mediapipe_track/src
-            python3 -m pip install -r requirements.txt
-            ```
+        
 - ### Nodes
     - #### darknet_ros
         - **Description**
