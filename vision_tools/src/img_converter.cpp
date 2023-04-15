@@ -36,7 +36,7 @@ public:
     }
 
     // Output modified video stream
-    printf("Image encoding: %s \n", (cv_ptr->encoding).c_str());
+    //printf("Image encoding: %s \n", (cv_ptr->encoding).c_str());
     image_pub_.publish(cv_ptr->toImageMsg());
   }
 };
