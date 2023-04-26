@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 from sensor_msgs.msg import Image, RegionOfInterest
@@ -46,7 +46,7 @@ class DetectedPersonManager():
         # Messages
         self.msg_rgbImg = None   # Image
         self.msg_bBoxes = None   # BoundingBox List
-        self.msg_imgArray = None # ImageArray
+        self.msg_imgArray = ImageArray() # ImageArray
 
         self.cv_img = None       # CvImage
         self.bridge = CvBridge()
@@ -81,9 +81,10 @@ class DetectedPersonManager():
             del person
 
         for bbox in self.msg_bBoxes.bounding_boxes:
-            coordinates = self.extract_coordinates(bbox)
-            person = Person(coordinates, self.cv_img)
-            self.person_list.append(self.person.get_img_msg())      
+            if(bbox.Class == "person"):
+                coordinates = self.extract_coordinates(bbox)
+                person = Person(coordinates, self.cv_img)
+                self.person_list.append(person.get_img_msg())      
 
         for person in self.person_list:
             self.msg_imgArray.data = self.person_list
@@ -96,6 +97,7 @@ class DetectedPersonManager():
     def mainLoop(self):
         while rospy.is_shutdown() == False:
             self.loopRate.sleep()
+            self.pub_imageArray.publish(self.msg_imgArray)
             
 if __name__ == "__main__":
     DetectedPersonManager(
