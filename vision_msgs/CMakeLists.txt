@@ -12,6 +12,8 @@ add_message_files(
   FILES
   PersonArray.msg
   PointArray.msg
+  Object.msg
+  ObjectArray.msg
 )
 
 generate_messages(
