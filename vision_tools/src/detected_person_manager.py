@@ -12,6 +12,7 @@ class DetectedPersonManager():
         # Messages
         self.msg_rgbImg = Image()   # Image
         self.msg_personArray = ObjectArray() # PersonArray
+        self.msg_person = Object()
 
         self.msg_img = Image()
 
@@ -30,6 +31,7 @@ class DetectedPersonManager():
         self.pub_personArray = rospy.Publisher(topic_personArray, ObjectArray, queue_size=1)
         ## Temporary test
         self.pub_image = rospy.Publisher("/utbots/vision/selected/image", Image, queue_size=1)
+        self.pub_person = rospy.Publisher("/utbots/vision/selected/object", Object, queue_size=1)
         ##
 
         # ROS node
@@ -64,6 +66,7 @@ class DetectedPersonManager():
         # Temporary test
         if len(person_list) > 0: 
             self.msg_img = person_list[0].cropped
+            self.msg_person = person_list[0]
         #
         self.msg_personArray.array = person_list
                     
@@ -89,6 +92,7 @@ class DetectedPersonManager():
             self.pub_personArray.publish(self.msg_personArray)
             # Temporary test
             self.pub_image.publish(self.msg_img)
+            self.pub_person.publish(self.msg_person)
             #
             
 if __name__ == "__main__":
