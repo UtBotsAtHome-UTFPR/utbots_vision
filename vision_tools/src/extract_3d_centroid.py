@@ -3,7 +3,8 @@
 import rospy
 from sensor_msgs.msg import Image, RegionOfInterest
 from vision_msgs.msg import Object, ObjectArray
-from geometry_msgs.msg import PointStamped, Point
+from geometry_msgs.msg import PointStamped, Point, TransformStamped
+from tf.msg import tfMessage
 from cv_bridge import CvBridge  
 # Math 
 import numpy as np
@@ -16,10 +17,12 @@ class Extract3DCentroid():
         self.camFov_horizontal = camFov_horizontal
 
         # Messages
+        self.msg_tfStamped          = TransformStamped()
         self.msg_cvDepthImg         = None
         self.msg_roi                = RegionOfInterest()
         self.msg_obj                = Object()
         self.msg_centroidPoint      = PointStamped()
+        self.msg_centroidPoint.header.frame_id = "target"
 
         # Subscribers
         self.sub_depthImg = rospy.Subscriber(topicDepthImg, Image, self.callback_depthImg)
@@ -27,32 +30,34 @@ class Extract3DCentroid():
         
         self.pub_centroidPoint = rospy.Publisher(
             "/utbots/vision/selected/objectPoint", PointStamped, queue_size=10)
+        self.pub_tf = rospy.Publisher(
+            "/tf", tfMessage, queue_size=1)
+        
+        # Cv
+        self.cvBridge = CvBridge()
         
         rospy.init_node("extract_3d_centroid", anonymous=True)
 
         # Time
         self.loopRate = rospy.Rate(30)
-        # Cv
-        self.cvBridge = CvBridge()
         self.mainLoop()
 
     def callback_depthImg(self, msg):
-        rospy.loginfo("Depth")
         self.msg_cvDepthImg = self.cvBridge.imgmsg_to_cv2(msg, "32FC1")
 
     def callback_object(self, msg):
-        rospy.loginfo("Object")
         self.msg_obj = msg
-        self.msg_centroidPoint = self.calculate_3d_centroid(msg.roi)
+        self.msg_centroidPoint.point = self.calculate_3d_centroid(msg.roi)
+        self.pub_centroidPoint.publish(self.msg_centroidPoint)
 
     def calculate_3d_centroid(self, roi):
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
-        rospy.loginfo(self.msg_cvDepthImg[mean_x, mean_y])
+        rospy.loginfo(mean_y)
+        rospy.loginfo(mean_x)
         return self.Get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.msg_cvDepthImg[mean_x, mean_y])
     
-    ''' By using rule of three and considering the FOV of the camera:
-            - Calculates the 3D point of a depth pixel '''
+    # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
     def Get3dPointFromDepthPixel(self, pixelPoint, depth):
 
         # Constants
@@ -86,13 +91,28 @@ class Extract3DCentroid():
         x = -x
         y = -y
 
-        return Point(x, y, z)
+        return Point(z, x, y)
+    
+    # Transformation tree methods
+    def SetupTfMsg(self):
+        self.msg_tfStamped.header.frame_id = "camera_link"
+        self.msg_tfStamped.header.stamp = rospy.Time.now()
+        self.msg_tfStamped.child_frame_id = "target"
+        self.msg_tfStamped.transform.translation.x = 0
+        self.msg_tfStamped.transform.translation.y = 0
+        self.msg_tfStamped.transform.translation.z = 0
+        self.msg_tfStamped.transform.rotation.x = 0.0
+        self.msg_tfStamped.transform.rotation.y = 0.0
+        self.msg_tfStamped.transform.rotation.z = 0.0
+        self.msg_tfStamped.transform.rotation.w = 1.0
+
+        msg_tf = tfMessage([self.msg_tfStamped])
+        self.pub_tf.publish(msg_tf)
     
     def mainLoop(self):
         while rospy.is_shutdown() == False:
-            rospy.loginfo("LOop")
             self.loopRate.sleep()
-            self.pub_centroidPoint.publish(self.msg_centroidPoint)
+            self.SetupTfMsg()
     
 
 if __name__ == '__main__':

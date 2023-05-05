@@ -58,7 +58,7 @@ class DetectedPersonManager():
             for bbox in bbox_list.bounding_boxes:
                 if(bbox.Class == "person"):
                     person = Object()
-                    person.class_ = "person"
+                    person.class_.data = "person"
                     person.parent_img = self.msg_rgbImg
                     person.roi = self.formatROI(bbox)
                     person.cropped = self.crop_img_msg(self.cv_img, bbox)
