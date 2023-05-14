@@ -9,7 +9,7 @@ from cv_bridge import CvBridge
 import cv2
 # Math 
 import numpy as np
-from math import pow, sqrt, tan, radians
+from math import pow, sqrt, sin, tan, radians
 
 class Extract3DCentroid():
     def __init__(self, topicDepthImg, topicObject, camFov_vertical, camFov_horizontal):
@@ -67,48 +67,49 @@ class Extract3DCentroid():
 
         return depthMean
 
-    # Redefines the xy point 
-    def redefineScale(self, point):
-        x = point.x/self.msg_obj.parent_img.width
-        y = point.y/self.msg_obj.parent_img.height
-        return Point(x, y, 0)
-
     def calculate_3d_centroid(self, roi):
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
-        return self.get3dPointFromDepthPixel(self.redefineScale(Point(mean_x, mean_y, 0)), self.getMeanDistance())
+        return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.getMeanDistance())
     
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
-    def get3dPointFromDepthPixel(self, pixelPoint, pointRadius):
-        # Constants
-        # -- Half angle for each quadrant
-        maxAngle_x = self.camFov_horizontal/2
-        maxAngle_y = self.camFov_vertical/2
-        # -- Screen dimensions are adjusted to 0-1 in X and Y
-        CENTER_X = 1/2.0
-        CENTER_Y = 1/2.0
+    def get3dPointFromDepthPixel(self, pixel, distance):
+        # Set the height and width of the parent image (camera)
+        width  = self.msg_obj.parent_img.width
+        height = self.msg_obj.parent_img.height
 
-        # Distances to screen center
-        distanceToCenter_x = pixelPoint.x - CENTER_X
-        distanceToCenter_y = pixelPoint.y - CENTER_Y
+        # Centralize the camera reference at (0,0,0)
+        ## (x,y,z) are respectively horizontal, vertical and depth
+        ## Theta is the angle of the point with z axis in the zx plane
+        ## Phi is the angle of the point with z axis in the zy plane
+        ## x_max is the distance of the side border from the camera
+        ## y_max is the distance of the upper border from the camera
+        theta_max = self.camFov_horizontal/2 
+        phi_max = self.camFov_vertical/2
+        x_max = width/2.0
+        y_max = height/2.0
+        x = (pixel.x/width) - x_max
+        y = (pixel.y/height) - y_max
 
-        # Horizontal angle (xz plane)
-        theta = radians(maxAngle_x * distanceToCenter_x / CENTER_X)
-        
-        # Vertical angle (yz plane)
-        phi = radians(maxAngle_y * distanceToCenter_y / CENTER_Y)
+        # Caculate point theta and phi
+        theta = radians(theta_max * x / x_max)
+        phi = radians(phi_max * y / y_max)
 
-        # Coordinates
-        # -- mm to m  conversion 
-        pointRadius = pointRadius / 1000 
+        # Convert the spherical radius rho from Kinect's mm to meter
+        rho = distance/1000
 
-        z = pointRadius/ sqrt(1 + pow(tan(theta), 2) + pow(tan(phi), 2))
-        x = z * tan(theta)
-        y = z * tan(phi)
+        # Calculate x, y and z
+        y = rho * sin(phi)
+        x = sqrt(pow(rho, 2) - pow(y, 2)) * sin(theta)
+        z = x / tan(theta)
 
-        # Corrections
-        x = -x
-        y = -y
+        # z = (rho / sqrt(1 + pow(tan(theta), 2) + pow(tan(phi), 2)))
+        # x = z * tan(theta)
+        # y = z * tan(phi)
+
+        # # Corrections
+        # x = -x
+        # y = -y
 
         return Point(x, y, z)
     
