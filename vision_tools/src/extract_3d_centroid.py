@@ -55,17 +55,50 @@ class Extract3DCentroid():
         self.msg_obj = msg
         self.new_objMsg = True
 
+    def movingAverage(self, new_value, current_mean, n_values):
+        return current_mean+(new_value-current_mean)/n_values
+    
+    def quarterFrameAverage(self, subframe, ver_start, ver_stop, ver_step, hor_start, hor_stop, hor_step):
+        # Iterates through the image from the start to the stop indexes, using the step defined
+        for i in range(ver_start, ver_stop, ver_step):
+            for j in range(hor_start, hor_stop, hor_step):
+                # First point evaluated
+                if i == ver_start and j == hor_start:
+                    subframe_mean = subframe[i][j]
+                    n_values = 1
+                # If the pixel value diference to the mean is less than 100mm (10cm), adds to the mean
+                elif subframe[i][j] - subframe_mean < 100:
+                    print(subframe[i][j] - subframe_mean)
+                    n_values += 1
+                    subframe_mean = self.movingAverage(subframe[i][j], subframe_mean, n_values)
+        return subframe_mean
+
     def getMeanDistance(self):
+        # Frame dimensions
+        height = self.msg_obj.roi.height
+        width = self.msg_obj.roi.width
+
         # Stores the point distances of every point inside the object's region of interest
-        npArray = self.msg_cvDepthImg[0:self.msg_obj.roi.height, 0:self.msg_obj.roi.width]
 
-        # Calculates the mean value
-        rowMeans = np.array([])
-        for row in npArray:
-            rowMeans = np.append(rowMeans, np.mean(row))
-        depthMean = np.mean(rowMeans)
+        # Divide the total frame into 4 subframes
+        btm_left =  self.msg_cvDepthImg[0:(height//2)        , 0:(width//2)      ]
+        top_left =  self.msg_cvDepthImg[(height//2+1):height , 0:(width//2)      ]
+        btm_right = self.msg_cvDepthImg[0:(height//2)        , (width//2+1):width]
+        top_right = self.msg_cvDepthImg[(height//2+1):height , (width//2+1):width]
 
-        return depthMean
+        # Calculates the average of all 4 subframes
+        btm_left_mean =  self.quarterFrameAverage(btm_left, len(btm_left)-1, -1, -1, len(btm_left[0])-1, -1, -1,)
+        top_left_mean =  self.quarterFrameAverage(top_left, 0, len(top_left), 1, len(btm_left[0])-1, -1, -1)
+        btm_right_mean = self.quarterFrameAverage(btm_right, len(btm_right)-1, -1, -1, 0, len(btm_right[0]), 1)
+        top_right_mean = self.quarterFrameAverage(top_right, 0, len(top_right), 1, 0, len(top_right[0]), 1)
+
+        return (btm_left_mean + top_left_mean + btm_right_mean + top_right_mean)/4
+
+    # Redefines the xy point scale from 0-height and 0-width to a percentage of the total size scale in both dimensions (0-1)
+    def redefineScale(self, point):
+        x = point.x/self.msg_obj.parent_img.width
+        y = point.y/self.msg_obj.parent_img.height
+        return Point(x, y, 0)
 
     def calculate_3d_centroid(self, roi):
         mean_y = roi.y_offset + roi.height//2
@@ -74,9 +107,8 @@ class Extract3DCentroid():
     
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
     def get3dPointFromDepthPixel(self, pixel, distance):
-        # Set the height and width of the parent image (camera)
-        width  = self.msg_obj.parent_img.width
-        height = self.msg_obj.parent_img.height
+        width  = 1.0
+        height = 1.0
 
         # Centralize the camera reference at (0,0,0)
         ## (x,y,z) are respectively horizontal, vertical and depth
@@ -88,8 +120,8 @@ class Extract3DCentroid():
         phi_max = self.camFov_vertical/2
         x_max = width/2.0
         y_max = height/2.0
-        x = (pixel.x/width) - x_max
-        y = (pixel.y/height) - y_max
+        x = pixel.x - x_max
+        y = pixel.y - y_max
 
         # Caculate point theta and phi
         theta = radians(theta_max * x / x_max)
@@ -103,15 +135,13 @@ class Extract3DCentroid():
         x = sqrt(pow(rho, 2) - pow(y, 2)) * sin(theta)
         z = x / tan(theta)
 
-        # z = (rho / sqrt(1 + pow(tan(theta), 2) + pow(tan(phi), 2)))
-        # x = z * tan(theta)
-        # y = z * tan(phi)
+        # Change coordinate scheme
+        ## We calculate with (x,y,z) respectively horizontal, vertical and depth
+        ## For the plot in 3d space, we need to remap the coordinates to (z, -x, -y)
+        point_zxy = Point(z, -x, -y)
 
-        # # Corrections
-        # x = -x
-        # y = -y
+        return point_zxy
 
-        return Point(x, y, z)
     
     # Transformation tree methods
     def SetupTfMsg(self):
@@ -134,8 +164,8 @@ class Extract3DCentroid():
             self.loopRate.sleep()
             if(self.new_objMsg == True and self.new_depthMsg == True):
                 self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_obj.roi)
-            self.pub_centroidPoint.publish(self.msg_centroidPoint)
             self.SetupTfMsg()
+            self.pub_centroidPoint.publish(self.msg_centroidPoint)
     
 
 if __name__ == '__main__':
