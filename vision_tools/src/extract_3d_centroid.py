@@ -9,7 +9,7 @@ from cv_bridge import CvBridge
 import cv2
 # Math 
 import numpy as np
-from math import pow, sqrt, tan, radians
+from math import pow, sqrt, sin, tan, radians
 
 class Extract3DCentroid():
     def __init__(self, topicDepthImg, topicObject, camFov_vertical, camFov_horizontal):
@@ -55,19 +55,46 @@ class Extract3DCentroid():
         self.msg_obj = msg
         self.new_objMsg = True
 
+    def movingAverage(self, new_value, current_mean, n_values):
+        return current_mean+(new_value-current_mean)/n_values
+    
+    def quarterFrameAverage(self, subframe, ver_start, ver_stop, ver_step, hor_start, hor_stop, hor_step):
+        # Iterates through the image from the start to the stop indexes, using the step defined
+        for i in range(ver_start, ver_stop, ver_step):
+            for j in range(hor_start, hor_stop, hor_step):
+                # First point evaluated
+                if i == ver_start and j == hor_start:
+                    subframe_mean = subframe[i][j]
+                    n_values = 1
+                # If the pixel value diference to the mean is less than 100mm (10cm), adds to the mean
+                elif subframe[i][j] - subframe_mean < 100:
+                    print(subframe[i][j] - subframe_mean)
+                    n_values += 1
+                    subframe_mean = self.movingAverage(subframe[i][j], subframe_mean, n_values)
+        return subframe_mean
+
     def getMeanDistance(self):
+        # Frame dimensions
+        height = self.msg_obj.roi.height
+        width = self.msg_obj.roi.width
+
         # Stores the point distances of every point inside the object's region of interest
-        npArray = self.msg_cvDepthImg[0:self.msg_obj.roi.height, 0:self.msg_obj.roi.width]
 
-        # Calculates the mean value
-        rowMeans = np.array([])
-        for row in npArray:
-            rowMeans = np.append(rowMeans, np.mean(row))
-        depthMean = np.mean(rowMeans)
+        # Divide the total frame into 4 subframes
+        btm_left =  self.msg_cvDepthImg[0:(height//2)        , 0:(width//2)      ]
+        top_left =  self.msg_cvDepthImg[(height//2+1):height , 0:(width//2)      ]
+        btm_right = self.msg_cvDepthImg[0:(height//2)        , (width//2+1):width]
+        top_right = self.msg_cvDepthImg[(height//2+1):height , (width//2+1):width]
 
-        return depthMean
+        # Calculates the average of all 4 subframes
+        btm_left_mean =  self.quarterFrameAverage(btm_left, len(btm_left)-1, -1, -1, len(btm_left[0])-1, -1, -1,)
+        top_left_mean =  self.quarterFrameAverage(top_left, 0, len(top_left), 1, len(btm_left[0])-1, -1, -1)
+        btm_right_mean = self.quarterFrameAverage(btm_right, len(btm_right)-1, -1, -1, 0, len(btm_right[0]), 1)
+        top_right_mean = self.quarterFrameAverage(top_right, 0, len(top_right), 1, 0, len(top_right[0]), 1)
 
-    # Redefines the xy point 
+        return (btm_left_mean + top_left_mean + btm_right_mean + top_right_mean)/4
+
+    # Redefines the xy point scale from 0-height and 0-width to a percentage of the total size scale in both dimensions (0-1)
     def redefineScale(self, point):
         x = point.x/self.msg_obj.parent_img.width
         y = point.y/self.msg_obj.parent_img.height
@@ -79,38 +106,42 @@ class Extract3DCentroid():
         return self.get3dPointFromDepthPixel(self.redefineScale(Point(mean_x, mean_y, 0)), self.getMeanDistance())
     
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
-    def get3dPointFromDepthPixel(self, pixelPoint, pointRadius):
-        # Constants
-        # -- Half angle for each quadrant
-        maxAngle_x = self.camFov_horizontal/2
-        maxAngle_y = self.camFov_vertical/2
-        # -- Screen dimensions are adjusted to 0-1 in X and Y
-        CENTER_X = 1/2.0
-        CENTER_Y = 1/2.0
+    def get3dPointFromDepthPixel(self, pixel, distance):
+        width  = 1.0
+        height = 1.0
 
-        # Distances to screen center
-        distanceToCenter_x = pixelPoint.x - CENTER_X
-        distanceToCenter_y = pixelPoint.y - CENTER_Y
+        # Centralize the camera reference at (0,0,0)
+        ## (x,y,z) are respectively horizontal, vertical and depth
+        ## Theta is the angle of the point with z axis in the zx plane
+        ## Phi is the angle of the point with z axis in the zy plane
+        ## x_max is the distance of the side border from the camera
+        ## y_max is the distance of the upper border from the camera
+        theta_max = self.camFov_horizontal/2 
+        phi_max = self.camFov_vertical/2
+        x_max = width/2.0
+        y_max = height/2.0
+        x = pixel.x - x_max
+        y = pixel.y - y_max
 
-        # Horizontal angle (xz plane)
-        theta = radians(maxAngle_x * distanceToCenter_x / CENTER_X)
-        
-        # Vertical angle (yz plane)
-        phi = radians(maxAngle_y * distanceToCenter_y / CENTER_Y)
+        # Caculate point theta and phi
+        theta = radians(theta_max * x / x_max)
+        phi = radians(phi_max * y / y_max)
 
-        # Coordinates
-        # -- mm to m  conversion 
-        pointRadius = pointRadius / 1000 
+        # Convert the spherical radius rho from Kinect's mm to meter
+        rho = distance/1000
 
-        z = pointRadius/ sqrt(1 + pow(tan(theta), 2) + pow(tan(phi), 2))
-        x = z * tan(theta)
-        y = z * tan(phi)
+        # Calculate x, y and z
+        y = rho * sin(phi)
+        x = sqrt(pow(rho, 2) - pow(y, 2)) * sin(theta)
+        z = x / tan(theta)
 
-        # Corrections
-        x = -x
-        y = -y
+        # Change coordinate scheme
+        ## We calculate with (x,y,z) respectively horizontal, vertical and depth
+        ## For the plot in 3d space, we need to remap the coordinates to (z, -x, -y)
+        point_zxy = Point(z, -x, -y)
 
-        return Point(x, y, z)
+        return point_zxy
+
     
     # Transformation tree methods
     def SetupTfMsg(self):
@@ -133,8 +164,8 @@ class Extract3DCentroid():
             self.loopRate.sleep()
             if(self.new_objMsg == True and self.new_depthMsg == True):
                 self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_obj.roi)
-            self.pub_centroidPoint.publish(self.msg_centroidPoint)
             self.SetupTfMsg()
+            self.pub_centroidPoint.publish(self.msg_centroidPoint)
     
 
 if __name__ == '__main__':
