@@ -1,5 +1,5 @@
 - **This stack contains vision related packages, such as:**
-    - darknet_ros
+    - [darknet_ros](https://github.com/gustavo-fardo/darknet_ros.git)
     - mediapipe_track
     - vision_tools
 
