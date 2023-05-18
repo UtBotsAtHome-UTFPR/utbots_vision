@@ -54,14 +54,16 @@ class Extract3DCentroid():
         self.msg_cvDepthImg = self.cvBridge.imgmsg_to_cv2(msg, "32FC1")
         x0 = self.msg_obj.roi.x_offset
         y0 = self.msg_obj.roi.y_offset
-        xf = x0 + self.msg_obj.roi.width
-        yf = y0 + self.msg_obj.roi.height
+        xf = x0 + (self.msg_obj.roi.width)
+        yf = y0 + (self.msg_obj.roi.height)
+        print(str(x0) + " " + str(xf) + " " + str(y0) + " " + str(xf))
         self.msg_cvDepthImg = self.msg_cvDepthImg[y0:yf, x0:xf]
         self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.msg_cvDepthImg, "passthrough")
         self.new_depthMsg = True
 
     def callback_object(self, msg):
         self.msg_obj = msg
+        print(str(self.msg_obj.roi.x_offset) + " " + str(self.msg_obj.roi.y_offset) + " " + str(self.msg_obj.roi.width) + " " + str(self.msg_obj.roi.height))
         self.new_objMsg = True
 
     def movingAverage(self, new_value, current_mean, n_values):
@@ -71,7 +73,7 @@ class Extract3DCentroid():
         # Iterates through the image from the start to the stop indexes, using the step defined
         for i in range(ver_start, ver_stop, ver_step):
             for j in range(hor_start, hor_stop, hor_step):
-                print("["+str(i)+","+str(j)+"]:" + str(subframe[i][j]))
+                # print("["+str(i)+","+str(j)+"]:" + str(subframe[i][j]))
                 # First point evaluated
                 if i == ver_start and j == hor_start:
                     subframe_mean = subframe[i][j]
