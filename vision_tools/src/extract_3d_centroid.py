@@ -24,6 +24,7 @@ class Extract3DCentroid():
         self.msg_obj                = Object()
         self.msg_centroidPoint      = PointStamped()
         self.msg_centroidPoint.header.frame_id = "object_center"
+        self.msg_cropped = Image()
 
         # Flags
         self.new_depthMsg = False
@@ -35,6 +36,8 @@ class Extract3DCentroid():
         
         self.pub_centroidPoint = rospy.Publisher(
             "/utbots/vision/selected/objectPoint", PointStamped, queue_size=1)
+        self.pub_cropped = rospy.Publisher(
+            "/utbots/vision/selected/croppedImg", Image, queue_size=1)
         self.pub_tf = rospy.Publisher(
             "/tf", tfMessage, queue_size=10)
         
@@ -49,6 +52,12 @@ class Extract3DCentroid():
 
     def callback_depthImg(self, msg):
         self.msg_cvDepthImg = self.cvBridge.imgmsg_to_cv2(msg, "32FC1")
+        x0 = self.msg_obj.roi.x_offset
+        y0 = self.msg_obj.roi.y_offset
+        xf = x0 + self.msg_obj.roi.width
+        yf = y0 + self.msg_obj.roi.height
+        self.msg_cvDepthImg = self.msg_cvDepthImg[y0:yf, x0:xf]
+        self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.msg_cvDepthImg, "passthrough")
         self.new_depthMsg = True
 
     def callback_object(self, msg):
@@ -62,13 +71,14 @@ class Extract3DCentroid():
         # Iterates through the image from the start to the stop indexes, using the step defined
         for i in range(ver_start, ver_stop, ver_step):
             for j in range(hor_start, hor_stop, hor_step):
+                print("["+str(i)+","+str(j)+"]:" + str(subframe[i][j]))
                 # First point evaluated
                 if i == ver_start and j == hor_start:
                     subframe_mean = subframe[i][j]
                     n_values = 1
                 # If the pixel value diference to the mean is less than 100mm (10cm), adds to the mean
                 elif subframe[i][j] - subframe_mean < 100:
-                    print(subframe[i][j] - subframe_mean)
+                    # print(subframe[i][j] - subframe_mean)
                     n_values += 1
                     subframe_mean = self.movingAverage(subframe[i][j], subframe_mean, n_values)
         return subframe_mean
@@ -165,6 +175,7 @@ class Extract3DCentroid():
             if(self.new_objMsg == True and self.new_depthMsg == True):
                 self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_obj.roi)
             self.SetupTfMsg()
+            self.pub_cropped.publish(self.msg_cropped)
             self.pub_centroidPoint.publish(self.msg_centroidPoint)
     
 
