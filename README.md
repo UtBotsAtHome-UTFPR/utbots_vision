@@ -1,7 +1,8 @@
 - **This stack contains vision related packages, such as:**
-    - darknet_ros
-    - mediapipe_track
+    - [darknet_ros](https://github.com/gustavo-fardo/darknet_ros.git)
+    - [mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track.git)
     - vision_tools
+    - vision_msgs
 
 - ### Getting started
     - ### Installation
@@ -15,3 +16,5 @@
         ```bash
         catkin_make -DCMAKE_BUILD_TYPE=Release
         ```
+    - #### Running
+        See the usage explanation accessing each package in the repository
