@@ -83,6 +83,7 @@ class DetectedObjectManager():
         roi.y_offset = bbox.ymin
         roi.width = bbox.xmax - roi.x_offset
         roi.height = bbox.ymax - roi.y_offset
+        print("x0: " + str(roi.x_offset) + "| width: " + str(roi.width) + "| y0: " + str(roi.y_offset) + "| height: " + str(roi.height))
         return roi
 
     def mainLoop(self):

@@ -56,14 +56,14 @@ class Extract3DCentroid():
         y0 = self.msg_obj.roi.y_offset
         xf = x0 + (self.msg_obj.roi.width)
         yf = y0 + (self.msg_obj.roi.height)
-        print(str(x0) + " " + str(xf) + " " + str(y0) + " " + str(xf))
+        # print(str(x0) + " " + str(xf) + " " + str(y0) + " " + str(xf))
         self.msg_cvDepthImg = self.msg_cvDepthImg[y0:yf, x0:xf]
         self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.msg_cvDepthImg, "passthrough")
         self.new_depthMsg = True
 
     def callback_object(self, msg):
         self.msg_obj = msg
-        print(str(self.msg_obj.roi.x_offset) + " " + str(self.msg_obj.roi.y_offset) + " " + str(self.msg_obj.roi.width) + " " + str(self.msg_obj.roi.height))
+        # print(str(self.msg_obj.roi.x_offset) + " " + str(self.msg_obj.roi.y_offset) + " " + str(self.msg_obj.roi.width) + " " + str(self.msg_obj.roi.height))
         self.new_objMsg = True
 
     def movingAverage(self, new_value, current_mean, n_values):
@@ -85,7 +85,7 @@ class Extract3DCentroid():
                     subframe_mean = self.movingAverage(subframe[i][j], subframe_mean, n_values)
         return subframe_mean
 
-    def getMeanDistance(self):
+    def getMeanDistance4(self):
         # Frame dimensions
         height = self.msg_obj.roi.height
         width = self.msg_obj.roi.width
@@ -106,6 +106,52 @@ class Extract3DCentroid():
 
         return (btm_left_mean + top_left_mean + btm_right_mean + top_right_mean)/4
 
+    def getMeanDistance(self):
+        height, width = self.msg_cvDepthImg.shape
+        npArray = self.msg_cvDepthImg[0:height, 0:width]
+
+        rowMeans = np.array([])
+        for row in npArray:
+            rowMeans = np.append(rowMeans, np.mean(row))
+
+        depthMean = np.mean(rowMeans)
+        return depthMean
+
+    def getMeanDistanceWoutOutliers(self):
+        allpixels = np.array([])
+        height, width = self.msg_cvDepthImg.shape
+        image = self.msg_cvDepthImg[0:height, 0:width]
+
+        if image.size > 0:
+            # Add every pixel to a list
+            for i in range(0, height):
+                for j in range(0, width):
+                    if(image[i][j] != 0):
+                        print(image[i][j])
+                        allpixels = np.append(allpixels, image[i][j])
+
+            # Sorted list
+            allpixels = np.sort(allpixels)
+
+            q3 = np.percentile(allpixels, 75)
+            q1 = np.percentile(allpixels, 25)
+            interquartile = q3 - q1
+            max = q3 + (1.5*interquartile)
+            min = q1 - (1.5*interquartile)
+
+            filteredpixels = np.array([])
+
+            # Add only pixels within the min and max boundary to a np.array (filtered outliers)
+            for pixel in allpixels:
+                if(pixel < max and pixel > min):
+                    filteredpixels = np.append(filteredpixels, pixel)
+
+            # Returns the mean
+            print(image.size)
+            return np.mean(filteredpixels)
+        else:
+            return 0
+
     # Redefines the xy point scale from 0-height and 0-width to a percentage of the total size scale in both dimensions (0-1)
     def redefineScale(self, point):
         x = point.x/self.msg_obj.parent_img.width
@@ -115,7 +161,7 @@ class Extract3DCentroid():
     def calculate_3d_centroid(self, roi):
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
-        return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.getMeanDistance())
+        return self.get3dPointFromDepthPixel(self.redefineScale(Point(mean_x, mean_y, 0)), self.getMeanDistanceWoutOutliers())
     
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
     def get3dPointFromDepthPixel(self, pixel, distance):
@@ -151,6 +197,8 @@ class Extract3DCentroid():
         ## We calculate with (x,y,z) respectively horizontal, vertical and depth
         ## For the plot in 3d space, we need to remap the coordinates to (z, -x, -y)
         point_zxy = Point(z, -x, -y)
+
+        print(str(z))
 
         return point_zxy
 
