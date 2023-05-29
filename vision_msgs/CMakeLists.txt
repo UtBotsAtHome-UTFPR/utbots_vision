@@ -14,6 +14,7 @@ add_message_files(
   PointArray.msg
   Object.msg
   ObjectArray.msg
+  Skeleton2d.msg
 )
 
 generate_messages(

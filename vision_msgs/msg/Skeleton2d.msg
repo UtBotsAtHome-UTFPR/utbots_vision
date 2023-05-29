@@ -37,3 +37,6 @@ uint8 LEFT_HEEL        = 29
 uint8 RIGHT_HEEL       = 30
 uint8 LEFT_FOOT_INDEX  = 31
 uint8 RIGHT_FOOT_INDEX = 32
+
+# Detected skeleton points array
+geometry_msgs/Point[] points
