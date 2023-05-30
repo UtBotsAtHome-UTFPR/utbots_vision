@@ -30,8 +30,8 @@ class DetectedPersonManager():
         # Publishers
         self.pub_personArray = rospy.Publisher(topic_personArray, ObjectArray, queue_size=1)
         ## Temporary test
-        self.pub_image = rospy.Publisher("/utbots/vision/selected/image", Image, queue_size=1)
-        self.pub_person = rospy.Publisher("/utbots/vision/selected/object", Object, queue_size=1)
+        self.pub_image = rospy.Publisher("/utbots/vision/person/selected/image", Image, queue_size=1)
+        self.pub_person = rospy.Publisher("/utbots/vision/person/selected/object", Object, queue_size=1)
         ##
 
         # ROS node

@@ -140,7 +140,7 @@ class Extract3DCentroid():
             for i in range(0, height):
                 for j in range(0, width):
                     if(image[i][j] != 0):
-                        print(image[i][j])
+                        # print(image[i][j])
                         allpixels = np.append(allpixels, image[i][j])
 
             # Calculates the first quartile and third quartile (equivalent to percentile 25 and 75, respectively)
@@ -158,7 +158,7 @@ class Extract3DCentroid():
                     filteredpixels = np.append(filteredpixels, pixel)
 
             # Returns the mean
-            print(image.size)
+            # print(image.size)
             return np.mean(filteredpixels)
         else:
             return 0
@@ -182,7 +182,8 @@ class Extract3DCentroid():
     def calculate_3d_centroid(self, roi):
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
-        calculatedDistance = self.getMedianDistance()
+        calculatedDistance = self.getMeanDistanceWoutOutliers()
+        # calculatedDistance = self.getMedianDistance()
         if calculatedDistance > 0:
             self.distance = calculatedDistance
         return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.distance)
@@ -223,7 +224,7 @@ class Extract3DCentroid():
         ## For the plot in 3d space, we need to remap the coordinates to (z, -x, -y)
         point_zxy = Point(z, -x, -y)
 
-        print(str(z))
+        print(str(sqrt(pow(z, 2) + pow(y, 2) + pow(x, 2))))
 
         return point_zxy
  
@@ -255,7 +256,7 @@ class Extract3DCentroid():
 
 if __name__ == '__main__':
     Extract3DCentroid(
-    "/camera/depth/image_raw",
+    "/camera/depth_registered/image_raw",
     "/utbots/vision/selected/object",
     43,
     57)
