@@ -72,10 +72,10 @@ class DetectedPersonManager():
                     
     def crop_img_msg(self, image, bbox):
         cropped_cv_img = image[bbox.ymin:bbox.ymax, bbox.xmin:bbox.xmax]
-        try:
-            img_msg = self.bridge.cv2_to_imgmsg(cropped_cv_img, encoding="rgb8")
-        except:
-            img_msg = Image()
+        # try:
+        img_msg = self.bridge.cv2_to_imgmsg(cropped_cv_img, encoding="rgb8")
+        # except:
+            # img_msg = Image()
         return img_msg
     
     def formatROI(self, bbox):

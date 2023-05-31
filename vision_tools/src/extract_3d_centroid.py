@@ -224,7 +224,7 @@ class Extract3DCentroid():
         ## For the plot in 3d space, we need to remap the coordinates to (z, -x, -y)
         point_zxy = Point(z, -x, -y)
 
-        print(str(sqrt(pow(z, 2) + pow(y, 2) + pow(x, 2))))
+        rospy.loginfo("Euclidian distance from camera: " + str(sqrt(pow(z, 2) + pow(y, 2) + pow(x, 2))) + "m")
 
         return point_zxy
  

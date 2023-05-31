@@ -56,12 +56,13 @@ class DetectedObjectManager():
         if self.new_rgbImg == True:
             self.new_rgbImg = False
             for bbox in bbox_list.bounding_boxes:
-                object = Object()
-                object.class_.data = "object"
-                object.parent_img = self.msg_rgbImg
-                object.roi = self.formatROI(bbox)
-                object.cropped = self.crop_img_msg(self.cv_img, bbox)
-                object_list.append(object)        
+                if bbox.Class != "person":
+                    object = Object()
+                    object.class_.data = "object"
+                    object.parent_img = self.msg_rgbImg
+                    object.roi = self.formatROI(bbox)
+                    object.cropped = self.crop_img_msg(self.cv_img, bbox)
+                    object_list.append(object)        
         # Temporary test
         if len(object_list) > 0: 
             self.msg_img = object_list[0].cropped
@@ -83,7 +84,6 @@ class DetectedObjectManager():
         roi.y_offset = bbox.ymin
         roi.width = bbox.xmax - roi.x_offset
         roi.height = bbox.ymax - roi.y_offset
-        print("x0: " + str(roi.x_offset) + "| width: " + str(roi.width) + "| y0: " + str(roi.y_offset) + "| height: " + str(roi.height))
         return roi
 
     def mainLoop(self):
