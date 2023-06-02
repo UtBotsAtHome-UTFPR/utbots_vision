@@ -73,50 +73,6 @@ class Extract3DCentroid():
 
 # Distance of the object methods of calculation
 
-    #-# Mean from the center considering the values only less than 10cm away from the mean distance
-    ## Right now is not so different than the ordinary mean (NOT VERY GOOD)
-    def movingAverage(self, new_value, current_mean, n_values):
-        return current_mean+(new_value-current_mean)/n_values
-    
-    def quarterFrameAverage(self, subframe, ver_start, ver_stop, ver_step, hor_start, hor_stop, hor_step):
-        # Iterates through the image from the start to the stop indexes, using the step defined
-        for i in range(ver_start, ver_stop, ver_step):
-            for j in range(hor_start, hor_stop, hor_step):
-                # print("["+str(i)+","+str(j)+"]:" + str(subframe[i][j]))
-                # First point evaluated
-                if i == ver_start and j == hor_start:
-                    subframe_mean = subframe[i][j]
-                    n_values = 1
-                # If the pixel value diference to the mean is less than 100mm (10cm), adds to the mean
-                elif subframe[i][j] - subframe_mean < 100:
-                    # print(subframe[i][j] - subframe_mean)
-                    n_values += 1
-                    subframe_mean = self.movingAverage(subframe[i][j], subframe_mean, n_values)
-        return subframe_mean
-
-    def getMeanDistance4(self):
-        # Frame dimensions
-        height = self.msg_obj.roi.height
-        width = self.msg_obj.roi.width
-
-        # Stores the point distances of every point inside the object's region of interest
-
-        # Divide the total frame into 4 subframes
-        btm_left =  self.cv_depthFrame[0:(height//2)        , 0:(width//2)      ]
-        top_left =  self.cv_depthFrame[(height//2+1):height , 0:(width//2)      ]
-        btm_right = self.cv_depthFrame[0:(height//2)        , (width//2+1):width]
-        top_right = self.cv_depthFrame[(height//2+1):height , (width//2+1):width]
-
-        # Calculates the average of all 4 subframes
-        btm_left_mean =  self.quarterFrameAverage(btm_left, len(btm_left)-1, -1, -1, len(btm_left[0])-1, -1, -1,)
-        top_left_mean =  self.quarterFrameAverage(top_left, 0, len(top_left), 1, len(btm_left[0])-1, -1, -1)
-        btm_right_mean = self.quarterFrameAverage(btm_right, len(btm_right)-1, -1, -1, 0, len(btm_right[0]), 1)
-        top_right_mean = self.quarterFrameAverage(top_right, 0, len(top_right), 1, 0, len(top_right[0]), 1)
-
-        return (btm_left_mean + top_left_mean + btm_right_mean + top_right_mean)/4
-
-    #-#
-
     #-# Ordinary mean of all values (NOT VERY GOODs)
     def getMeanDistance(self):
         height, width = self.cv_depthFrame.shape
@@ -128,6 +84,51 @@ class Extract3DCentroid():
 
         depthMean = np.mean(rowMeans)
         return depthMean
+    
+    #-# Mean from the center considering the values only less than 100mm away from the mean distance
+    ## (PROMISING, BUT PERFORMS BADLY WITH TRANSPARENT OBJECTS)
+    def getFilteredDistance(self):
+        height, width = self.cv_depthFrame.shape
+        filtPixels, distanceMean = self.SpiralFiltering(self.cv_depthFrame, width, height, 100)
+        return distanceMean
+
+    def movingAverage(self, new_value, current_mean, n_values):
+        return current_mean+(new_value-current_mean)/n_values
+    
+    # Iterates through the image in a counterclockwise manner starting from the center
+    # Returns the filtered pixels list and the list mean
+    # Filters points if the point is further from the mean distance by threshold
+    def SpiralFiltering(self, img, w, h, threshold): 
+        hw = w//2
+        hh = h//2
+        x = hw
+        y = hh
+        dx = 1
+        dy = 0
+        filtPixels = []
+        filtMean = 0
+        nFilt = 0
+        for i in range(0, int(pow(max(w,h), 2))):
+            if x >= 0 and x < w and y >= 0 and y < h:
+                if x == hh and y == hw:
+                    filtPixels.append(img[y][x])
+                    filtMean = img[y][x]
+                    nFilt = 1
+                elif abs(img[y][x] - filtMean) <= threshold:
+                    filtPixels.append(img[y][x])
+                    nFilt += 1
+                    filtMean = self.movingAverage(img[y,x], filtMean, nFilt)
+            cx = x - hw
+            cy = y - hh
+            if (cx == cy) or (cx == -cy and cx < 0) or (cx == -(1 + cy) and cx >= 0):
+                store = dy
+                dy = -dx
+                dx = store
+            x += dx
+            y += dy 
+        return filtPixels, filtMean
+    #-#
+
 
     #-# Removes the outlier values (PROMISING, BUT CRASHES WITH BIG FRAMES)
     def getMeanDistanceWoutOutliers(self):
@@ -140,7 +141,6 @@ class Extract3DCentroid():
             for i in range(0, height):
                 for j in range(0, width):
                     if(image[i][j] != 0):
-                        # print(image[i][j])
                         allpixels = np.append(allpixels, image[i][j])
 
             # Calculates the first quartile and third quartile (equivalent to percentile 25 and 75, respectively)
@@ -158,7 +158,6 @@ class Extract3DCentroid():
                     filteredpixels = np.append(filteredpixels, pixel)
 
             # Returns the mean
-            # print(image.size)
             return np.mean(filteredpixels)
         else:
             return 0
@@ -183,10 +182,13 @@ class Extract3DCentroid():
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
         # calculatedDistance = self.getMeanDistanceWoutOutliers()
-        calculatedDistance = self.getMedianDistance()
+        # calculatedDistance = self.getMedianDistance()
+        calculatedDistance = self.getFilteredDistance()
         if calculatedDistance > 0:
             self.distance = calculatedDistance
-        return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.distance)
+            return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.distance)
+        else:
+            return Point(0,0,0)
     
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
     def get3dPointFromDepthPixel(self, pixel, distance):

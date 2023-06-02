@@ -1,0 +1,14 @@
+
+Rodar Modelos: 
+
+roslaunch vision_tools object3dCOCO.launch
+roslaunch vision_tools object3dLARC2022.launch
+
+Com: 
+
+rosrun vision_tools extract_3d_centroid.py 
+
+
+Para alterar o método, descomentar nas linhas 185 e 186 em extract_3d_centroid.py em vision_tools:
+        # calculatedDistance = self.getMeanDistanceWoutOutliers()
+        # calculatedDistance = self.getMedianDistance()
