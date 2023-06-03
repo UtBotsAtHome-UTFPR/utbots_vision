@@ -99,6 +99,6 @@ if __name__ == "__main__":
     DetectedPersonManager(
         "/camera/rgb/image_raw",
         "/darknet_ros/bounding_boxes",
-        "/utbots/vision/person/detection/personImgArray")
+        "/utbots/vision/person/personImgArray")
 
 
