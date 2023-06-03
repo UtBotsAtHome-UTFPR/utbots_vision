@@ -30,8 +30,8 @@ class DetectedObjectManager():
         # Publishers
         self.pub_objectArray = rospy.Publisher(topic_objectArray, ObjectArray, queue_size=1)
         ## Temporary test
-        self.pub_image = rospy.Publisher("/utbots/vision/selected/image", Image, queue_size=1)
-        self.pub_object = rospy.Publisher("/utbots/vision/selected/object", Object, queue_size=1)
+        self.pub_image = rospy.Publisher("/utbots/vision/object/selected/image", Image, queue_size=1)
+        self.pub_object = rospy.Publisher("/utbots/vision/object/selected/object", Object, queue_size=1)
         ##
 
         # ROS node
@@ -99,6 +99,6 @@ if __name__ == "__main__":
     DetectedObjectManager(
         "/camera/rgb/image_raw",
         "/darknet_ros/bounding_boxes",
-        "/utbots/vision/object/detection/objectImgArray")
+        "/utbots/vision/object/objectArray")
 
 
