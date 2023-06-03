@@ -171,8 +171,7 @@ class Extract3DCentroid():
 
         for i in range(0, height):
             for j in range(0, width):
-                if(image[0][0]):
-                    # print(image[i][j])
+                if(image[i][j] > 0):
                     allpixels = np.append(allpixels, image[i][j])
 
         return np.median(allpixels)
@@ -182,8 +181,8 @@ class Extract3DCentroid():
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
         # calculatedDistance = self.getMeanDistanceWoutOutliers()
-        # calculatedDistance = self.getMedianDistance()
-        calculatedDistance = self.getFilteredDistance()
+        # calculatedDistance = self.getFilteredDistance()
+        calculatedDistance = self.getMedianDistance()
         if calculatedDistance > 0:
             self.distance = calculatedDistance
             return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.distance)
@@ -259,6 +258,6 @@ class Extract3DCentroid():
 if __name__ == '__main__':
     Extract3DCentroid(
     "/camera/depth_registered/image_raw",
-    "/utbots/vision/selected/object",
+    "/utbots/vision/object/selected/object",
     43,
     57)
