@@ -34,7 +34,7 @@ class Extract3DCentroid():
         
         # Publishers
         self.pub_centroidPoint = rospy.Publisher(
-            "/utbots/vision/selected/objectPoint", PointStamped, queue_size=1)
+            "/utbots/vision/object/selected/objectPoint", PointStamped, queue_size=1)
         self.pub_cropped = rospy.Publisher(
             "/utbots/vision/selected/croppedImg", Image, queue_size=1)
         self.pub_tf = rospy.Publisher(
