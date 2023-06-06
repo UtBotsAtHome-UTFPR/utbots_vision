@@ -55,7 +55,10 @@ class Extract3DCentroid():
 
     def callback_depthImg(self, msg):
         # Convert the img_msg to OpenCv format
-        self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(msg, "32FC1")
+        try:
+            self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(msg, "32FC1")
+        except:
+            return
         # Extracts the Region of Interest boundaries
         x0 = self.msg_obj.roi.x_offset
         y0 = self.msg_obj.roi.y_offset
@@ -110,7 +113,7 @@ class Extract3DCentroid():
         nFilt = 0
         for i in range(0, int(pow(max(w,h), 2))):
             if x >= 0 and x < w and y >= 0 and y < h:
-                if x == hh and y == hw:
+                if x == hw and y == hh:
                     filtPixels.append(img[y][x])
                     filtMean = img[y][x]
                     nFilt = 1
@@ -208,7 +211,7 @@ class Extract3DCentroid():
         x = pixel.x - x_max
         y = pixel.y - y_max
 
-        # Caculate point theta and phi
+        # Caculate angle theta and phi
         theta = radians(theta_max * x / x_max)
         phi = radians(phi_max * y / y_max)
 
