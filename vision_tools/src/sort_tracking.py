@@ -5,9 +5,10 @@ from sensor_msgs.msg import Image, RegionOfInterest
 from vision_msgs.msg import Object, ObjectArray
 from cv_bridge import CvBridge 
 import cv2
+import numpy as np
 import time
 from darknet_ros_msgs.msg import BoundingBoxes
-from deep_sort_realtime.deepsort_tracker import DeepSort
+from sort.tracker import SortTracker
 
 class DeepSortTracking():
     def __init__(self, new_topic_rgbImg, new_topic_boundingBoxes, topic_trackImg):
@@ -33,8 +34,8 @@ class DeepSortTracking():
         # Detections list of tuples ([left,top,w,h], confidence, detection_class)
         self.detections = []
 
-        self.tracker = DeepSort(max_age=30, 
-                           n_init=2)
+        self.tracker = SortTracker(max_age=30, 
+                                   min_hits=2)
 
         # ROS node
         rospy.init_node('deep_sort_tracking', anonymous=True)
@@ -53,12 +54,19 @@ class DeepSortTracking():
     def callback_bBoxes(self, msg):
         bbox_list = msg
         if self.new_rgbImg == True:
-            detected_list = []
+            self.detections = np.empty((0, 5))
             for bbox in bbox_list.bounding_boxes:
-                if(bbox.Class == "person"):
-                    # Formats the bbox informations to the tracking method input format
-                    detected_list.append(([bbox.xmin, bbox.ymin, int(bbox.xmax - bbox.xmin), int(bbox.ymax - bbox.ymin)], bbox.probability, bbox.Class))
-            self.detections = detected_list
+                # if(bbox.Class == "person"):
+                # Formats the bbox informations to the tracking method input format
+                detection = np.array([[bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax, bbox.probability]], dtype="object")
+                detection = detection.reshape(1, 5)
+                self.detections = np.append(self.detections, detection, axis=0)
+            
+            remaining = 5 - np.size(self.detections)
+            if remaining > 0:
+                for i in range(5 - remaining, 5): 
+                    self.detections = np.append(self.detections, np.array[0,0,0,0,0.0], axis=i)
+                    
         self.new_detection = True
 
     def mainLoop(self):
@@ -71,7 +79,7 @@ class DeepSortTracking():
                 start = time.perf_counter()
 
                 # Performs tracking in the detected objetcs
-                tracks = self.tracker.update_tracks(self.detections, frame=self.cv_img)
+                tracks = self.tracker.update(self.detections, self.cv_img)
                 for track in tracks:
                     if not track.is_confirmed():
                         continue

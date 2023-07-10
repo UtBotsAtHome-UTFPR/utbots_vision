@@ -183,9 +183,9 @@ class Extract3DCentroid():
     def calculate_3d_centroid(self, roi):
         mean_y = roi.y_offset + roi.height//2
         mean_x = roi.x_offset + roi.width//2
-        # calculatedDistance = self.getMeanDistanceWoutOutliers()
+        calculatedDistance = self.getMeanDistanceWoutOutliers()
         # calculatedDistance = self.getFilteredDistance()
-        calculatedDistance = self.getMedianDistance()
+        # calculatedDistance = self.getMedianDistance()
         if calculatedDistance > 0:
             self.distance = calculatedDistance
             return self.get3dPointFromDepthPixel(Point(mean_x, mean_y, 0), self.distance)
