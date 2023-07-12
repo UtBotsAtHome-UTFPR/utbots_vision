@@ -10,7 +10,7 @@
   <!-- Darknet inference -->
   <include file="$(find darknet_ros)/launch/kinect.launch"/>
 
-  <node name="detected_obj_manager" pkg="vision_tools" type="detected_obj_manager.py"/> q
+  <node name="detected_obj_manager" pkg="vision_tools" type="detected_obj_manager.py"/>
 
    <node 
         type="rviz"
