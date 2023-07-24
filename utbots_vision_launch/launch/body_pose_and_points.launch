@@ -1,7 +1,7 @@
 <launch>
 
      <group ns="/utbots/vision/person">
-        <!-- <node pkg="mediapipe_track" type="body_pose.py" name="body_pose" output="screen"/> -->
+        <node pkg="mediapipe_track" type="body_pose.py" name="body_pose" output="screen"/>
         <node pkg="mediapipe_track" type="body_points.py" name="body_points" output="screen"/>	
      </group>
 
