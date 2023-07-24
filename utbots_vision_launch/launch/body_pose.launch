@@ -1,0 +1,7 @@
+<launch>
+
+    <group ns="/utbots/vision/person">
+       <node pkg="mediapipe_track" type="body_pose.py" name="body_pose"/>
+    </group>
+
+</launch>

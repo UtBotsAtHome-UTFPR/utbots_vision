@@ -1,0 +1,10 @@
+<launch>
+
+     <group ns="/utbots/vision/person">
+        <!-- <node pkg="mediapipe_track" type="body_pose.py" name="body_pose" output="screen"/> -->
+        <node pkg="mediapipe_track" type="body_points.py" name="body_points" output="screen"/>	
+     </group>
+
+        <node pkg="tf" type="static_transform_publisher" name="target_broadcaster" args="0 0 0 0 0 0 camera_link target 15" />
+
+</launch>
