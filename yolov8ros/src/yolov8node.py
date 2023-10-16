@@ -9,7 +9,7 @@ from sensor_msgs.msg import Image
 from vision_msgs.msg import BoundingBoxes, BoundingBox
 from cv_bridge import CvBridge
 
-class ObjectDetection:
+class ObjectDetectionLive:
 
     def __init__(self):
        
@@ -115,4 +115,4 @@ class ObjectDetection:
                 self.pub_bounding_boxes.publish(self.msg_bounding_boxes)
             self.rate.sleep()
            
-detector = ObjectDetection()
+detector = ObjectDetectionLive()
