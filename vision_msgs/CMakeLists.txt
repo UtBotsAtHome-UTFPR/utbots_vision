@@ -15,6 +15,8 @@ add_message_files(
   Object.msg
   ObjectArray.msg
   Skeleton2d.msg
+  BoundingBox.msg
+  BoundingBoxes.msg
 )
 
 generate_messages(
