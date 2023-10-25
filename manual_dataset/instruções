@@ -1,0 +1,20 @@
+Instruções:
+	1° Fotos individuais, 
+	Garantir que todos os angulos foram registrados. 
+	Exemplos para maçã e para kuat nas pastas apple e kuat.
+	
+	2° Fotos com overlap. 
+	É necessario garantir que todos os objetos da foto são identificaveis.
+	Tirar as fotos da altura do kinect.
+	Exemplos da LARC 2023 na pasta overlap.
+	Os exemplos não são ideais, pois as fotos foram tiradas de alturas incompativeis com a do 	
+	apollo.
+	
+	3° Dataset
+	Fazer o upload das fotos no roboflow.
+	Utilizar a ferramenta de annotation para fazer as labels.
+	Colocar 3 augmentations:
+		- 90° Rotate, colocar todos.
+		- Brightness, 25% brighten e darken.
+		- Blur, up to 2.5px.
+	
