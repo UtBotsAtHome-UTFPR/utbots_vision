@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/laser/catkin_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/laser/catkin_ws/src/utbots_vision/darknet_ros/darknet_ros/include/**",
+        "/home/laser/catkin_ws/src/utbots_vision/freenect_stack/freenect_camera/include/**",
+        "/home/laser/catkin_ws/src/utbots_voice/utbots_stt/vad_silero_ros/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

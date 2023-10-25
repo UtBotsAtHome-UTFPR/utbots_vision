@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import torch
 import numpy as np
 import cv2
@@ -28,7 +29,7 @@ class ObjectDetectionLive:
         self.msg_bounding_boxes = BoundingBoxes()
         
         # Subscribers and Publishers
-        self.sub_frame = rospy.Subscriber("/camera/rgb/image_raw", Image, callback=self.callback_img)
+        self.sub_frame = rospy.Subscriber("/usb_cam/image_raw", Image, callback=self.callback_img)
         self.pub_detection_img = rospy.Publisher("/utbots/vision/detection/image", Image, queue_size=1)
         self.pub_bounding_boxes = rospy.Publisher("/utbots/vision/detection/bounding_boxes", BoundingBoxes, queue_size=1)
         
@@ -54,13 +55,6 @@ class ObjectDetectionLive:
     def plot_bboxes(self, results, frame):
         self.msg_bounding_boxes = BoundingBoxes()
         
-         # Extract detections for each class detected
-        for result in results:
-            boxes = result.boxes.cpu().numpy()
-            class_id = boxes.cls[0]
-            conf = boxes.conf[0]
-            xyxy = boxes.xyxy[0]
-        
         # Setup detections for visualization
         detections = sv.Detections(
                     xyxy=results[0].boxes.xyxy.cpu().numpy(),                   # xmin, ymin, xmax, ymax bounding box coordinates
@@ -68,7 +62,7 @@ class ObjectDetectionLive:
                     class_id=results[0].boxes.cls.cpu().numpy().astype(int),    # numeric indexes for the infered classes
                     )
         
-        for coordinates, _, confidence, class_id, tracker_id in detections:
+        for coordinates, _, confidence, class_id, _ in detections:
             # Format custom labels
             self.labels = [f"{self.CLASS_NAMES_DICT[class_id]} {confidence:0.2f}"]
             # Assemble BoudingBox object
@@ -78,6 +72,10 @@ class ObjectDetectionLive:
             bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax = int(coordinates[0]), int(coordinates[1]), int(coordinates[2]), int(coordinates[3])
             # Append BoundingBox to a BoundingBoxes message
             self.msg_bounding_boxes.bounding_boxes.append(bbox)
+
+        self.labels = [f"{self.CLASS_NAMES_DICT[class_id]} {confidence:0.2f}"
+        for _, _, confidence, class_id, _
+        in detections]
         
         # Annotate frame
         frame = self.box_annotator.annotate(scene=frame, detections=detections, labels=self.labels)
@@ -87,7 +85,8 @@ class ObjectDetectionLive:
     def main(self):
         rospy.loginfo(f"Using Device: {self.device}")
         while not rospy.is_shutdown():
-            if self.cv_img != None:
+            if self.cv_img is not None:
+                start_time = time()
                 results = self.predict(self.cv_img)
                 frame = self.plot_bboxes(results, self.cv_img)
                 
