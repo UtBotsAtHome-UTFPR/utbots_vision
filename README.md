@@ -1,8 +1,8 @@
 - **This stack contains vision related packages, such as:**
-    - [darknet_ros](https://github.com/gustavo-fardo/darknet_ros.git)
     - [mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track.git)
     - vision_tools
     - vision_msgs
+    - yolov8ros
 
 - ### Getting started
     - ### Installation
