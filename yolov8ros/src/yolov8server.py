@@ -83,7 +83,8 @@ class ObjectDetectionFrame:
     
     def main(self):
         rospy.loginfo(f"Using Device: {self.device}")
-        service = rospy.Service('yolov8_server', YOLODetection, handle_detection_request)
-        rospy.spin()
+        service = rospy.Service('yolov8_server', YOLODetection, self.handle_detection_request)
+        rospy.spin()    # trocar pelo loop, e garantir que o que é feito no loop 
+                        # do node é feito na função handle_detection_request
 
 detector = ObjectDetectionFrame()
