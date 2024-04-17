@@ -1,5 +1,6 @@
 - **This stack contains vision related packages, such as:**
-    - [mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track.git)
+    - [mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track)
+    - [utbots_face_recognition](https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition)
     - vision_tools
     - vision_msgs
     - yolov8ros
