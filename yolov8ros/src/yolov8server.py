@@ -27,6 +27,7 @@ class ObjectDetectionFrame:
         
         # Node initialization
         rospy.init_node('yolov8_server', anonymous=True)
+        self.rate = rospy.Rate(30) # 30Hz
         
         self.main()
     
@@ -82,9 +83,13 @@ class ObjectDetectionFrame:
         return frame
     
     def main(self):
+        # trocar o rospy.spin pelo loop -> feito, eu acho 
+        # garantir que o que é feito no loop do node é feito na função 
+        # handle_detection_request
+
         rospy.loginfo(f"Using Device: {self.device}")
-        service = rospy.Service('yolov8_server', YOLODetection, self.handle_detection_request)
-        rospy.spin()    # trocar pelo loop, e garantir que o que é feito no loop 
-                        # do node é feito na função handle_detection_request
+        while not rospy.is_shutdown():
+            service = rospy.Service('yolov8_server', YOLODetection, self.handle_detection_request)
+            self.rate.sleep()
 
 detector = ObjectDetectionFrame()
