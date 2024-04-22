@@ -20,7 +20,7 @@ class ObjectDetectionLive:
         self.CLASS_NAMES_DICT = self.model.model.names
         
         # Image processing objects
-        self.box_annotator = sv.BoxAnnotator(sv.ColorPalette.default(), thickness=3, text_thickness=3, text_scale=1.5)
+        self.box_annotator = sv.BoxAnnotator(sv.ColorPalette.default(), thickness=2, text_thickness=1, text_scale=0.75)
         self.bridge = CvBridge()
         self.cv_img = None
         
@@ -63,8 +63,6 @@ class ObjectDetectionLive:
                     )
         
         for coordinates, _, confidence, class_id, _ in detections:
-            # Format custom labels
-            self.labels = [f"{self.CLASS_NAMES_DICT[class_id]} {confidence:0.2f}"]
             # Assemble BoudingBox object
             bbox = BoundingBox()
             bbox.Class = self.CLASS_NAMES_DICT[class_id]                        # given the class index, returns the name of the class
