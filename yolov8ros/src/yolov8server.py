@@ -44,7 +44,6 @@ class ObjectDetectionFrame:
     def handle_detection_request(self, req):
         results = self.predict(self.cv_img)
         frame = self.plot_bboxes(results, self.cv_img)
-        cv2.imwrite("ex.png", frame)
      
         self.pub_detection_img.publish(self.bridge.cv2_to_imgmsg(frame, encoding="passthrough"))    # publish image with bounding boxes
         self.pub_bounding_boxes.publish(self.msg_bounding_boxes)
@@ -77,6 +76,8 @@ class ObjectDetectionFrame:
                     )
         
         self.labels = []
+
+        print(detections)
 
         for coordinates, _, confidence, class_id, tracker_id in detections:
             # Assemble BoudingBox object
