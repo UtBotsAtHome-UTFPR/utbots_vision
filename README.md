@@ -8,12 +8,17 @@
 - vision_msgs
 - yolov8ros
 
+**And is dependant on:**
+
+- [utbots_dependencies](https://github.com/UtBotsAtHome-UTFPR/utbots_dependencies)
+
 ## Getting started
 
 ### Installation
 
-```bash 
-cd catkin_ws/src
+```bash
+cd ~/catkin_ws/src
+git clone https://github.com/UtBotsAtHome-UTFPR/utbots_dependencies.git
 git clone --recurse-submodules https://github.com/UtBotsAtHome-UTFPR/utbots_vision.git
 cd ../
 ```
@@ -21,6 +26,7 @@ cd ../
 ### Building
 
 ```bash
+cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
 
