@@ -1,4 +1,4 @@
 supervision==0.16.0
 ultralytics==8.2.2
-opencv-python==4.9.0
-torchvision==2.3.0+cu121
+opencv-python==4.9.0.80
+torch==2.3.0

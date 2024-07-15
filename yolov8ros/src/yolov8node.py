@@ -78,7 +78,7 @@ class ObjectDetectionLive:
                     class_id=results[0].boxes.cls.cpu().numpy().astype(int),    # numeric indexes for the infered classes
                     )
 
-        for coordinates, _, confidence, class_id, _, _ in detections:
+        for coordinates, _, confidence, class_id, _ in detections:
             # Assemble BoudingBox object
             bbox = BoundingBox()
             bbox.Class = self.CLASS_NAMES_DICT[class_id]                        # given the class index, returns the name of the class
@@ -88,7 +88,7 @@ class ObjectDetectionLive:
             self.msg_bounding_boxes.bounding_boxes.append(bbox)
 
         self.labels = [f"{self.CLASS_NAMES_DICT[class_id]} {confidence:0.2f}"
-        for _, _, confidence, class_id, _, _
+        for _, _, confidence, class_id, _
         in detections]
         
         # Annotate frame
