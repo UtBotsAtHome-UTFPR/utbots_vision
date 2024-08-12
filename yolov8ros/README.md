@@ -5,15 +5,6 @@
 
 ## Installation
 
-### Building (if downloaded outside utbots_vision)
-
-```bash
-cd ~/catkin_ws/src
-git clone https://github.com/UtBotsAtHome-UTFPR/yolov8ros.git
-cd ..
-catkin_make
-```
-
 ### Dependencies
 
 This package must be used alongside the [utbots_dependencies](https://github.com/UtBotsAtHome-UTFPR/utbots_dependencies) as it uses some of the message and action definitions. You can do this with:
