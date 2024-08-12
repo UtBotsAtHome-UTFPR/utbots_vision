@@ -1,6 +1,0 @@
-Header header
-sensor_msgs/Image msg_img
----
-sensor_msgs/Image detection_img
-vision_msgs/BoundingBoxes bounding_boxes
-
