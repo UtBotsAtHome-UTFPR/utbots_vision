@@ -37,4 +37,33 @@ See the usage explanation accessing each package in each package README.md or, i
 
 ## Packages Description
 
-### freenect_launch
+### freenect_stack
+- Kinect V1 Driver for ROS1. Outputs RGB sensor_msgs/Image and depth sensor_msgs/Image messages.
+- Most used topics are `camera/rgb/image_raw`, `camera/rgb/image_color` and `camera/depth_registered/image_raw`, but several other are available.
+
+#### Installation
+
+Installed already with utbots_vision clone and pull --recurse-submodules.
+Can be installed separately with:
+
+```bash
+sudo apt update
+sudo apt install ros-<distro>-freenect-launch
+```
+
+##### Dependencies
+
+You must install the freenect library beforehand:
+
+```bash
+sudo apt update
+sudo apt install libfreenect-dev
+```
+
+#### Running
+
+To launch the driver and its topics, run:
+
+```bash
+roslaunch freenect_launch freenect.launch
+```
