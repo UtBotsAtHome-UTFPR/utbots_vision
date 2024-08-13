@@ -6,4 +6,4 @@
 	url = https://github.com/UtBots-Home/freenect_stack.git
 [submodule "utbots_face_recognition"]
 	path = utbots_face_recognition
-	url = https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition.git
+	url = https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition
