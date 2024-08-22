@@ -56,10 +56,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 # Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  YOLODetection.srv
-)
+# add_service_files(
+#   FILES
+#   Service1.srv
+# )
 
 ## Generate actions in the 'action' folder
 # add_action_files(

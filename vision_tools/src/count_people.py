@@ -53,12 +53,11 @@ class GetDetectionFrame():
                 person_num = 0 
                 c.drawString(100, textY0, "Class | Probability")
                 for bbox in self.detMsg.bounding_boxes:
-                    if bbox.Class == "Person":
+                    if bbox.Class == "person":
                         person_num += 1
                     
                 rospy.loginfo(f"Number of people | {person_num}")
                 c.drawString(100, textY0, f"Number of people | {person_num}")
-                print(bbox.Class)
 
                 # Save the PDF file
                 c.save()
