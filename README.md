@@ -30,6 +30,16 @@ See the dependencies installation procedure for each package accessing its READM
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
+
+### Updating
+
+To push changes to the submodule packages ([mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track), [utbots_face_recognition](https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition)) you should go to their repository path and perform a simple add, commit and push. After, you have to push the changes to the stack, going back to the stack repository path and doing the following command:
+
+```bash
+git submodule update --remote --merge
+```
+And then, perform a simple add, commit and push in the stack repository.
+
 ## Running
 
 See the usage explanation accessing each package in each package README.md or, in some cases, below, in [Packages Description](#packages-description).
