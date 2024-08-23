@@ -20,7 +20,7 @@ The code runs on Python 3.8 and you must use a virtualenv (Install with `pip ins
 
 ```bash
 cd /usr/bin
-python3 -m virtualenv yolov8ros_env --python=$(which python3)
+sudo python3 -m virtualenv yolov8ros_env --python=$(which python3)
 roscd yolov8ros
 /usr/bin/yolov8ros_env/bin/python -m pip install -r requirements.txt
 ```
