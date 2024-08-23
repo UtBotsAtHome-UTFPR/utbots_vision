@@ -16,11 +16,13 @@ cd ..
 catkin_make
 ```
 
-The code runs on Python 3.8. Install YOLO and other Python requirements:
+The code runs on Python 3.8 and you must use virtualenvs (Install with `pip install virtualenv`). Install YOLO and other Python requirements:
 
 ```bash
+cd /usr/bin
+python3 -m virtualenv yolov8ros_env --python=$(which python3)
 roscd yolov8ros
-pip install -r requirements.txt
+/usr/bin/yolov8ros_env/bin/python -m pip install -r requirements.txt
 ```
 
 **OBS:** Recommended Python virtual environment
