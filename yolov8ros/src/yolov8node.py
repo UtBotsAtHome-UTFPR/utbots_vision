@@ -1,4 +1,4 @@
-#!/usr/bin/yolov8ros_env/bin/python
+#!/usr/bin/venv_yolov8ros/bin/python
 import torch
 import numpy as np
 import cv2
