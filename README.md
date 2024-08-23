@@ -34,6 +34,17 @@ catkin_make -DCMAKE_BUILD_TYPE=Release
 
 See the usage explanation accessing each package in each package README.md or, in some cases, below, in [Packages Description](#packages-description).
 
+### Updating
+
+**Assume users will know how to do basic pull, commit and push commands. If the>
+
+To push changes to the submodule packages ([mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track), [utbots_face_recognition](https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition)) you should>
+
+```bash
+git submodule update --remote --merge
+```
+And then, perform a simple add, commit and push in the stack repository.
+
 ## Packages Description
 
 ### freenect_stack
