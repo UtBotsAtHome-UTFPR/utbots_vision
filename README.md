@@ -29,6 +29,10 @@ See the dependencies installation procedure for each package accessing its READM
 ```bash
 cd ~/catkin_ws
 catkin_make -DCMAKE_BUILD_TYPE=Release
+# Install ROS dependencies
+sudo rosdep init
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
 ```
 
 ### Updating
