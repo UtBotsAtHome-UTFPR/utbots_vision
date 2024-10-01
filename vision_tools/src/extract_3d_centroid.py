@@ -1,40 +1,35 @@
 #!/usr/bin/env python3
 
 import rospy
-from sensor_msgs.msg import Image, RegionOfInterest
-from vision_msgs.msg import Object
+from sensor_msgs.msg import Image
+from vision_msgs.msg import BoundingBox
 from geometry_msgs.msg import PointStamped, Point, TransformStamped
 from tf.msg import tfMessage
 from cv_bridge import CvBridge  
+import actionlib
+from utbots_actions.msg import Extract3DPointAction, Extract3DPointResult
 # Math 
 import numpy as np
 from math import pow, sqrt, sin, tan, radians
 
 class Extract3DCentroid():
-    def __init__(self, topicDepthImg, topicObject, camFov_vertical, camFov_horizontal):
+    def __init__(self, topicDepthImg, camFov_vertical, camFov_horizontal):
         # Image FOV for trig calculations
         self.camFov_vertical = camFov_vertical
         self.camFov_horizontal = camFov_horizontal
 
         # Messages
+        self.msg_depthImg           = Image()
         self.msg_tfStamped          = TransformStamped()
-        self.msg_roi                = RegionOfInterest()
-        self.msg_obj                = Object()
+        self.msg_bbox               = BoundingBox()
         self.msg_centroidPoint      = PointStamped()
+        self.msg_cropped            = Image()
         self.msg_centroidPoint.header.frame_id = "object_center"
-        self.msg_cropped = Image()
-
-        # Flags
-        self.new_depthMsg = False
-        self.new_objMsg = False
 
         # Subscribers
         self.sub_depthImg = rospy.Subscriber(topicDepthImg, Image, self.callback_depthImg)
-        self.sub_object = rospy.Subscriber(topicObject, Object, self.callback_object)
         
         # Publishers
-        self.pub_centroidPoint = rospy.Publisher(
-            "/utbots/vision/object/selected/objectPoint", PointStamped, queue_size=1)
         self.pub_cropped = rospy.Publisher(
             "/utbots/vision/selected/croppedImg", Image, queue_size=1)
         self.pub_tf = rospy.Publisher(
@@ -42,37 +37,22 @@ class Extract3DCentroid():
         
         # Cv
         self.cvBridge = CvBridge()
-        self.cv_frame = None
 
         # Distance value (from the camera to the object)
         self.distance = 0
         
         rospy.init_node("extract_3d_centroid", anonymous=True)
 
+        # Action server initialization
+        self._as = actionlib.SimpleActionServer('extract_3d_centroid', Extract3DPointAction, self.extract3Dpoint_action, False)
+        self._as.start()
+
         # Time
-        self.loopRate = rospy.Rate(50)
+        self.loopRate = rospy.Rate(1)
         self.mainLoop()
 
     def callback_depthImg(self, msg):
-        # Convert the img_msg to OpenCv format
-        try:
-            self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(msg, "32FC1")
-        except:
-            return
-        # Extracts the Region of Interest boundaries
-        x0 = self.msg_obj.roi.x_offset
-        y0 = self.msg_obj.roi.y_offset
-        xf = x0 + (self.msg_obj.roi.width)
-        yf = y0 + (self.msg_obj.roi.height)
-        # Crops the full depth image
-        self.cv_depthFrame = self.cv_depthFrame[y0:yf, x0:xf]
-
-        self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.cv_depthFrame, "passthrough")
-        self.new_depthMsg = True
-
-    def callback_object(self, msg):
-        self.msg_obj = msg
-        self.new_objMsg = True
+        self.msg_depthImg = msg
 
 # Distance of the object methods of calculation
 
@@ -180,9 +160,9 @@ class Extract3DCentroid():
         return np.median(allpixels)
     #-#
 #
-    def calculate_3d_centroid(self, roi):
-        mean_y = roi.y_offset + roi.height//2
-        mean_x = roi.x_offset + roi.width//2
+    def calculate_3d_centroid(self, msg_bbox):
+        mean_y = msg_bbox.ymin + (msg_bbox.ymax - msg_bbox.ymin)//2
+        mean_x = msg_bbox.xmin + (msg_bbox.xmax - msg_bbox.xmin)//2
         calculatedDistance = self.getMeanDistanceWoutOutliers()
         # calculatedDistance = self.getFilteredDistance()
         # calculatedDistance = self.getMedianDistance()
@@ -195,8 +175,8 @@ class Extract3DCentroid():
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
     def get3dPointFromDepthPixel(self, pixel, distance):
         # Set the height and width of the parent image (camera)
-        width  = self.msg_obj.parent_img.width
-        height = self.msg_obj.parent_img.height
+        width  = self.msg_bbox.xmax - self.msg_bbox.xmin 
+        height = self.msg_bbox.ymax - self.msg_bbox.ymin 
 
         # Centralize the camera reference at (0,0,0)
         ## (x,y,z) are respectively horizontal, vertical and depth
@@ -247,20 +227,40 @@ class Extract3DCentroid():
 
         msg_tf = tfMessage([self.msg_tfStamped])
         self.pub_tf.publish(msg_tf)
+
+    def extract3Dpoint_action(self, goal):
+        self.msg_bbox = goal.Object_bbox
+        action_res = Extract3DPointResult()
+        print(self.msg_bbox)
+
+        if self.msg_bbox.xmax > self.msg_bbox.xmin and self.msg_bbox.ymax > self.msg_bbox.ymin:
+            try:
+            # Crops the full depth image
+                self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
+                self.cv_depthFrame = self.cv_depthFrame[self.msg_bbox.ymin:self.msg_bbox.ymax, self.msg_bbox.xmin:self.msg_bbox.xmax]
+                self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.cv_depthFrame, "passthrough")
+
+                print(self.cv_depthFrame)
+
+                self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_bbox)
+                self.SetupTfMsg()
+                self.pub_cropped.publish(self.msg_cropped)
+                
+                action_res.Point = self.msg_centroidPoint
+                action_res.Success = True
+            except:
+                action_res.Success = False
+                self._as.set_aborted()
+        else:
+            action_res.Success = False
+        self._as.set_succeeded(action_res)
     
     def mainLoop(self):
         while rospy.is_shutdown() == False:
             self.loopRate.sleep()
-            if(self.new_objMsg == True and self.new_depthMsg == True):
-                self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_obj.roi)
-            self.SetupTfMsg()
-            self.pub_cropped.publish(self.msg_cropped)
-            self.pub_centroidPoint.publish(self.msg_centroidPoint)
-    
 
 if __name__ == '__main__':
     Extract3DCentroid(
     "/camera/depth_registered/image_raw",
-    "/utbots/vision/object/selected/object",
     43,
     57)

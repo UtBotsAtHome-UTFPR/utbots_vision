@@ -206,6 +206,3 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
-add_executable(img_converter src/img_converter.cpp)
-target_link_libraries(img_converter ${catkin_LIBRARIES})
