@@ -10,13 +10,15 @@ import actionlib
 from utbots_actions.msg import Extract3DPointAction, Extract3DPointResult
 # Math 
 import numpy as np
-from math import pow, sqrt, sin, tan, radians
+from math import pow, sqrt, sin, tan, radians, cos
 
 class Extract3DCentroid():
     def __init__(self, topicDepthImg, camFov_vertical, camFov_horizontal):
         # Image FOV for trig calculations
         self.camFov_vertical = camFov_vertical
         self.camFov_horizontal = camFov_horizontal
+        self.camera_width = 640
+        self.camera_height = 480
 
         # Messages
         self.msg_depthImg           = Image()
@@ -33,7 +35,9 @@ class Extract3DCentroid():
         self.pub_cropped = rospy.Publisher(
             "/utbots/vision/selected/croppedImg", Image, queue_size=1)
         self.pub_tf = rospy.Publisher(
-            "/tf", tfMessage, queue_size=10)
+            "/tf", tfMessage, queue_size=1)
+        self.pub_point = rospy.Publisher(
+            "/utbots/vision/selected/point", PointStamped, queue_size=1)
         
         # Cv
         self.cvBridge = CvBridge()
@@ -44,7 +48,7 @@ class Extract3DCentroid():
         rospy.init_node("extract_3d_centroid", anonymous=True)
 
         # Action server initialization
-        self._as = actionlib.SimpleActionServer('extract_3d_centroid', Extract3DPointAction, self.extract3Dpoint_action, False)
+        self._as = actionlib.SimpleActionServer('extract_3d_point', Extract3DPointAction, self.extract3Dpoint_action, False)
         self._as.start()
 
         # Time
@@ -53,6 +57,8 @@ class Extract3DCentroid():
 
     def callback_depthImg(self, msg):
         self.msg_depthImg = msg
+        self.camera_width = msg.width
+        self.camera_height = msg.height
 
 # Distance of the object methods of calculation
 
@@ -175,8 +181,7 @@ class Extract3DCentroid():
     # By using rule of three and considering the FOV of the camera: Calculates the 3D point of a depth pixel '''
     def get3dPointFromDepthPixel(self, pixel, distance):
         # Set the height and width of the parent image (camera)
-        width  = self.msg_bbox.xmax - self.msg_bbox.xmin 
-        height = self.msg_bbox.ymax - self.msg_bbox.ymin 
+        height, width = self.camera_height, self.camera_width
 
         # Centralize the camera reference at (0,0,0)
         ## (x,y,z) are respectively horizontal, vertical and depth
@@ -186,27 +191,27 @@ class Extract3DCentroid():
         ## y_max is the distance of the upper border from the camera
         theta_max = self.camFov_horizontal/2 
         phi_max = self.camFov_vertical/2
-        x_max = width/2.0
-        y_max = height/2.0
-        x = pixel.x - x_max
-        y = pixel.y - y_max
+        img_x_max = width/2.0
+        img_y_max = height/2.0
+        img_x = pixel.x - img_x_max
+        img_y = pixel.y - img_y_max
 
         # Caculate angle theta and phi
-        theta = radians(theta_max * x / x_max)
-        phi = radians(phi_max * y / y_max)
+        theta = radians(theta_max * img_x / img_x_max)
+        phi = radians(phi_max * img_y / img_y_max)
 
         # Convert the spherical radius rho from Kinect's mm to meter
         rho = distance/1000
 
         # Calculate x, y and z
-        y = rho * sin(phi)
-        x = sqrt(pow(rho, 2) - pow(y, 2)) * sin(theta)
-        z = x / tan(theta)
+        z = rho * sin(phi)
+        y = rho * cos(phi) * sin(theta)
+        x = rho * cos(phi) * cos(theta)
 
         # Change coordinate scheme
         ## We calculate with (x,y,z) respectively horizontal, vertical and depth
-        ## For the plot in 3d space, we need to remap the coordinates to (z, -x, -y)
-        point_zxy = Point(z, -x, -y)
+        ## For the plot in 3d space, we need to remap the coordinates to (x, -y, -z)
+        point_zxy = Point(x, -y, -z)
 
         rospy.loginfo("Euclidian distance from camera: " + str(sqrt(pow(z, 2) + pow(y, 2) + pow(x, 2))) + "m")
 
@@ -214,7 +219,7 @@ class Extract3DCentroid():
  
     # Transformation tree methods
     def SetupTfMsg(self):
-        self.msg_tfStamped.header.frame_id = "camera_link"
+        self.msg_tfStamped.header.frame_id = "camera_depth_frame"
         self.msg_tfStamped.header.stamp = rospy.Time.now()
         self.msg_tfStamped.child_frame_id = "object_center"
         self.msg_tfStamped.transform.translation.x = 0
@@ -231,28 +236,21 @@ class Extract3DCentroid():
     def extract3Dpoint_action(self, goal):
         self.msg_bbox = goal.Object_bbox
         action_res = Extract3DPointResult()
-        print(self.msg_bbox)
 
         if self.msg_bbox.xmax > self.msg_bbox.xmin and self.msg_bbox.ymax > self.msg_bbox.ymin:
-            try:
-            # Crops the full depth image
-                self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
-                self.cv_depthFrame = self.cv_depthFrame[self.msg_bbox.ymin:self.msg_bbox.ymax, self.msg_bbox.xmin:self.msg_bbox.xmax]
-                self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.cv_depthFrame, "passthrough")
+            self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
+            self.cv_depthFrame = self.cv_depthFrame[self.msg_bbox.ymin:self.msg_bbox.ymax, self.msg_bbox.xmin:self.msg_bbox.xmax]
+            self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.cv_depthFrame, "passthrough")
 
-                print(self.cv_depthFrame)
-
-                self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_bbox)
-                self.SetupTfMsg()
-                self.pub_cropped.publish(self.msg_cropped)
-                
-                action_res.Point = self.msg_centroidPoint
-                action_res.Success = True
-            except:
-                action_res.Success = False
-                self._as.set_aborted()
+            self.msg_centroidPoint.point = self.calculate_3d_centroid(self.msg_bbox)
+            self.SetupTfMsg()
+            self.pub_cropped.publish(self.msg_cropped)
+            self.pub_point.publish(self.msg_centroidPoint)
+            
+            action_res.Point = self.msg_centroidPoint
+            action_res.Success.data = True
         else:
-            action_res.Success = False
+            action_res.Success.data = False
         self._as.set_succeeded(action_res)
     
     def mainLoop(self):

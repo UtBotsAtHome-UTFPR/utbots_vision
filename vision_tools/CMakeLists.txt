@@ -10,6 +10,7 @@ project(vision_tools)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
+  rospy
   roscpp
   sensor_msgs
   std_msgs

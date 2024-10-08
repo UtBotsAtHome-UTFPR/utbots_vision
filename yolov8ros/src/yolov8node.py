@@ -1,4 +1,4 @@
-#!/usr/bin/venv_yolov8ros/bin/python3
+#!/usr/bin/env python3
 import torch
 import numpy as np
 import cv2
@@ -45,6 +45,8 @@ class ObjectDetectionLive:
         # Action server initialization
         self._as = actionlib.SimpleActionServer('YOLO_detection', YOLODetectionAction, self.detection_action, False)
         self._as.start()
+
+        rospy.loginfo("YOLO_detection server up")
         
         self.main()
     
