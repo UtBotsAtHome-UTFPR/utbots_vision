@@ -11,7 +11,6 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
   rospy
-  roscpp
   sensor_msgs
   std_msgs
 )
@@ -162,10 +161,10 @@ include_directories(
 
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
+#catkin_install_python(PROGRAMS
+#   src/extract_3d_centroid.py
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+#)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

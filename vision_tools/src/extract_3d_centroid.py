@@ -237,7 +237,8 @@ class Extract3DCentroid():
         self.msg_bbox = goal.Object_bbox
         action_res = Extract3DPointResult()
 
-        if self.msg_bbox.xmax > self.msg_bbox.xmin and self.msg_bbox.ymax > self.msg_bbox.ymin:
+        if self.msg_bbox.xmax > self.msg_bbox.xmin and self.msg_bbox.ymax > self.msg_bbox.ymin and self.msg_depthImg is not None:
+
             self.cv_depthFrame = self.cvBridge.imgmsg_to_cv2(self.msg_depthImg, "32FC1")
             self.cv_depthFrame = self.cv_depthFrame[self.msg_bbox.ymin:self.msg_bbox.ymax, self.msg_bbox.xmin:self.msg_bbox.xmax]
             self.msg_cropped = self.cvBridge.cv2_to_imgmsg(self.cv_depthFrame, "passthrough")
@@ -259,6 +260,8 @@ class Extract3DCentroid():
 
 if __name__ == '__main__':
     Extract3DCentroid(
-    "/camera/depth_registered/image_raw",
-    43,
-    57)
+    "/camera/aligned_depth_to_color/image_raw",
+    57,
+    86)
+    # Kinect FOV: 43 vertical 57 horizontal
+    # Realsense D435 FOV: 57 vertical 86 horizontal
