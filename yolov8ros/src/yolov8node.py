@@ -32,9 +32,12 @@ class ObjectDetectionLive:
         # Messages
         self.msg_img = Image()
         self.msg_bounding_boxes = BoundingBoxes()
-        
+
+        # Parameters
+        self.camera_topic = rospy.get_param('~camera_topic', '/camera/color/image_raw')
+            
         # Subscribers and Publishers and Services
-        self.sub_frame = rospy.Subscriber("/camera/color/image_raw", Image, callback=self.callback_img)
+        self.sub_frame = rospy.Subscriber(self.camera_topic, Image, callback=self.callback_img)
         self.pub_detection_img = rospy.Publisher("/utbots/vision/detection/image", Image, queue_size=1)
         self.pub_bounding_boxes = rospy.Publisher("/utbots/vision/detection/bounding_boxes", BoundingBoxes, queue_size=1)
         self.detect_img_service = rospy.Service('/utbots/vision/enable_detection', SetBool, self.enable_detection)
