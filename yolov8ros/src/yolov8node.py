@@ -17,6 +17,10 @@ from utbots_actions.msg import YOLODetectionAction, YOLODetectionResult
 class ObjectDetectionLive:
 
     def __init__(self):
+
+        # Node initialization
+        rospy.init_node('yolov8_live', anonymous=True)
+
         # Model configurations
         self.weights = rospy.get_param("yolo_weights", "yolov8n.pt")
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu' 
@@ -35,6 +39,7 @@ class ObjectDetectionLive:
 
         # Parameters
         self.camera_topic = rospy.get_param('~camera_topic', '/camera/color/image_raw')
+        rospy.loginfo(self.camera_topic)
             
         # Subscribers and Publishers and Services
         self.sub_frame = rospy.Subscriber(self.camera_topic, Image, callback=self.callback_img)
@@ -42,8 +47,6 @@ class ObjectDetectionLive:
         self.pub_bounding_boxes = rospy.Publisher("/utbots/vision/detection/bounding_boxes", BoundingBoxes, queue_size=1)
         self.detect_img_service = rospy.Service('/utbots/vision/enable_detection', SetBool, self.enable_detection)
 
-        # Node initialization
-        rospy.init_node('yolov8_live', anonymous=True)
         self.rate = rospy.Rate(1) # 1hz
         # Action server initialization
         self._as = actionlib.SimpleActionServer('YOLO_detection', YOLODetectionAction, self.detection_action, False)
@@ -65,7 +68,8 @@ class ObjectDetectionLive:
 
     def detection_action (self, goal):
         # Optional specific image sent as goal
-        if goal.Image.width != 0 and goal.Image.height != 0:
+        
+        if goal is not None and goal.Image.width != 0 and goal.Image.height != 0:
             print( goal.Image.width )
             image = self.bridge.imgmsg_to_cv2(goal.Image, desired_encoding="bgr8")
         else:
@@ -74,7 +78,7 @@ class ObjectDetectionLive:
 
         # Target Category will filter bboxes. "" if no target
         target_category = goal.TargetCategory.data
-        
+
         if image is not None:
             results = self.predict(image) # Model output
             frame, bboxes = self.plot_bboxes(results, image, target_category) # Labeled frame and BoundingBoxes msg
@@ -94,7 +98,8 @@ class ObjectDetectionLive:
             self.pub_detection_img.publish(frame)
             self.pub_bounding_boxes.publish(self.msg_bounding_boxes)
             self._as.set_succeeded(action_res)
-        return []
+        else:
+            self._as.set_aborted()
 
     def load_model(self):
         model = YOLO(self.weights)  # load a pretrained YOLOv8n model
