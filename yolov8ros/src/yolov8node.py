@@ -22,7 +22,7 @@ class ObjectDetectionLive:
         rospy.init_node('yolov8_live', anonymous=True)
 
         # Model configurations
-        self.weights = rospy.get_param("yolo_weights", "yolov8n.pt")
+        self.weights = rospy.get_param("yolo_weights", "/home/laser/catkin_ws/src/utbots_vision/src/yolov8ros/best.pt")
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu' 
         self.model = self.load_model()
         self.CLASS_NAMES_DICT = self.model.model.names
@@ -102,7 +102,7 @@ class ObjectDetectionLive:
             self._as.set_aborted()
 
     def load_model(self):
-        model = YOLO(self.weights)  # load a pretrained YOLOv8n model
+        model = YOLO(self.weights, conf=0.45)  # load a pretrained YOLOv8n model
         model.fuse()
         return model
 
