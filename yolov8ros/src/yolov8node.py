@@ -14,6 +14,12 @@ from cv_bridge import CvBridge
 import actionlib
 from utbots_actions.msg import YOLODetectionAction, YOLODetectionResult
 
+from pathlib import Path
+
+models_path = (Path.cwd()).parent / "models"
+
+print(f"models_path: {models_path}")
+
 class ObjectDetectionLive:
 
     def __init__(self):
@@ -54,7 +60,7 @@ class ObjectDetectionLive:
 
         rospy.loginfo("YOLO_detection server up")
         
-        self.main()
+        # self.main()
     
     def callback_img(self, msg):
         self.msg_img = msg
