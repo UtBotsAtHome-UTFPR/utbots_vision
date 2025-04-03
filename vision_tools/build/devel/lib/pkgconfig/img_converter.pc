@@ -1,8 +1,0 @@
-prefix=/home/laser/catkin_ws/src/img_converter/build/devel
-
-Name: img_converter
-Description: Description of img_converter
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 

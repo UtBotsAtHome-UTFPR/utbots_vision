@@ -1,9 +1,3 @@
 [submodule "mediapipe_track"]
 	path = mediapipe_track
 	url = https://github.com/UtBotsAtHome-UTFPR/mediapipe_track.git
-[submodule "freenect_stack"]
-	path = freenect_stack
-	url = https://github.com/UtBots-Home/freenect_stack.git
-[submodule "utbots_face_recognition"]
-	path = utbots_face_recognition
-	url = https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition
