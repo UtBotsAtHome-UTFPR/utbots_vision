@@ -9,11 +9,11 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionServer
 from sensor_msgs.msg import Image
-from vision_msgs.msg import BoundingBoxes, BoundingBox
+from utbots_msgs.msg import BoundingBoxes, BoundingBox
 from std_msgs.msg import Bool
 from std_srvs.srv import SetBool
 from cv_bridge import CvBridge
-from yolov8_ros.action import YOLODetection
+from utbots_actions.action import YOLODetection
 
 class ObjectDetectionLive(Node):
 
@@ -21,13 +21,13 @@ class ObjectDetectionLive(Node):
         super().__init__('yolov8_live')
         
         self.declare_parameter('weights', '/ros2_ws/src/yolov8_ros/weights/best.pt')
-        self.declare_parameter('camera_topic', '/camera/color/image_raw')
+        self.declare_parameter('camera_topic', '/image_raw')
         
         self.weights = self.get_parameter('weights').value
         self.camera_topic = self.get_parameter('camera_topic').value
         
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model = YOLO(self.weights, conf=0.45)
+        self.model = YOLO("yolo11n.pt")
         self.model.fuse()
         self.CLASS_NAMES_DICT = self.model.model.names
         
@@ -83,7 +83,7 @@ class ObjectDetectionLive(Node):
         target_category = goal_handle.request.target_category
         
         if image is not None:
-            results = self.model(image)
+            results = self.model.predict(image, conf=0.45)
             frame, bboxes = self.plot_bboxes(results, image, target_category)
             
             result.labeled_image = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
