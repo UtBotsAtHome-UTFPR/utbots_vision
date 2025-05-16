@@ -1,0 +1,12 @@
+# Goal definition
+sensor_msgs/Image image         
+string target_category         
+bool get_drawn                
+bool get_torso_point         
+
+---
+# Result definition
+sensor_msgs/Image labeled_image  # Image with detections drawn
+vision_msgs/BoundingBoxes detected_objects  # Detected objects
+bool success                     # Whether detection was successful
+
