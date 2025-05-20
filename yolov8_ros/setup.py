@@ -21,7 +21,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'yolov8_node = yolov8_ros.yolov8_node:main',
+            'yolo_node = yolov8_ros.yolov8_node:main',
         ],
     },
 )

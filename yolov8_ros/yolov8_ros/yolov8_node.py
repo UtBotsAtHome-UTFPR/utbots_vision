@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from .yolov8_detector import YOLODetector
 import torch
 import numpy as np
 import cv2
@@ -15,27 +16,73 @@ from std_srvs.srv import SetBool
 from cv_bridge import CvBridge
 from utbots_actions.action import YOLODetection
 
-class ObjectDetectionLive(Node):
+class YOLONode(Node, YOLODetector):
+    """
+    A ROS2 node that performs real-time object detection using YOLOv8 and publishes
+    detected bounding boxes, visualized detection images, and provides service/action interfaces.
 
+    ## Parameters:
+    - `weights` (string)
+    Path to the YOLOv8 model weights file.
+    - `camera_topic` (string)
+    The input ROS topic for RGB images.
+    - `device` (string)
+    Device to run inference on. Options: `'cuda'` or `'cpu'`. Defaults to `'cuda'` if available.
+    - `conf` (float)
+    Confidence threshold for filtering detections.
+    - `draw` (bool)
+    Whether to draw bounding boxes on the output image.
+    - `target_category` (string)
+    Target class name to filter detections. If empty, all classes are allowed.
+
+    ## Publishers:
+    - `/utbots/vision/detection/image` (sensor_msgs/Image)
+    Publishes the image with visualized detections (if drawing is enabled).
+    - `/utbots/vision/detection/bounding_boxes` (utbots_msgs/BoundingBoxes)
+    Publishes detected bounding boxes with class names and confidence scores.
+
+    ## Subscribers:
+    - `<camera_topic>` (sensor_msgs/Image)
+    Subscribes to the RGB image stream for inference.
+
+    ## Services:
+    - `/utbots/vision/enable_detection` (std_srvs/SetBool)
+    Enables or disables synchronous detection processing.
+
+    ## Actions:
+    - `YOLO_detection` (utbots_actions/YOLODetection)
+    Action server to process a single image and return detection results.
+    """
     def __init__(self):
-        super().__init__('yolov8_live')
+        Node.__init__(self, 'yolo_node')
         
+        # Set parameters
         self.declare_parameter('weights', '/ros2_ws/src/yolov8_ros/weights/best.pt')
         self.declare_parameter('camera_topic', '/image_raw')
+        self.declare_parameter('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        self.declare_parameter('conf', 0.25)
+        self.declare_parameter('draw', False)
+        self.declare_parameter('target_category', '')
         
-        self.weights = self.get_parameter('weights').value
-        self.camera_topic = self.get_parameter('camera_topic').value
+        self.weights = self.get_parameter('weights').get_parameter_value().string_value
+        self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
+        self.device = self.get_parameter('device').get_parameter_value().string_value
+        self.conf = self.get_parameter('conf').get_parameter_value().integer_value
+        self.draw = self.get_parameter('draw').get_parameter_value().bool_value
+        self.target_category = self.get_parameter('target_category').get_parameter_value().string_value
         
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model = YOLO("yolo11n.pt")
-        self.model.fuse()
-        self.CLASS_NAMES_DICT = self.model.model.names
+        YOLODetector.__init__(self)
+        self.get_logger().info(f"YOLOv8 Node initialized with device: {self.device}")
         
+        # OpenCV image format conversion
         self.bridge = CvBridge()
         self.cv_img = None
-        self.msg_enable = False
+
+        # Define ROS messages
         
+        # Publishers and Subscribers
         self.pub_detection_img = self.create_publisher(Image, "/utbots/vision/detection/image", 10)
+
         self.pub_bounding_boxes = self.create_publisher(BoundingBoxes, "/utbots/vision/detection/bounding_boxes", 10)
         
         self.sub_frame = self.create_subscription(
@@ -44,13 +91,16 @@ class ObjectDetectionLive(Node):
             self.callback_img,
             10
         )
-        
+
+        # Service to enable/disable synchronous processing
         self.srv_enable = self.create_service(
             SetBool,
             '/utbots/vision/enable_detection',
             self.enable_detection
         )
+        self.enable_synchronous = False
         
+        # Action server initialization
         self._action_server = ActionServer(
             self,
             YOLODetection,
@@ -58,18 +108,37 @@ class ObjectDetectionLive(Node):
             self.detection_action
         )
         
-        self.timer = self.create_timer(1.0, self.main_callback)
+        # Timer for synchronous processing
+        self.timer = self.create_timer(0.1, self.main_callback)
         
-        self.get_logger().info(f"YOLOv8 Node initialized with device: {self.device}")
-
     def callback_img(self, msg):
         self.cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
     def enable_detection(self, request, response):
-        self.msg_enable = request.data
+        self.enable_synchronous = request.data
         response.success = True
-        response.message = "Detection enabled" if self.msg_enable else "Detection disabled"
+        response.message = "Detection enabled" if self.enable_synchronous else "Detection disabled"
         return response
+
+    def plot_bboxes(self, detections, target_category):
+        msg_boxes = BoundingBoxes()
+
+        for i in range(len(detections)):
+            xyxy = detections.xyxy[i]
+            conf = detections.confidence[i]
+            cls_id = detections.class_id[i]
+            if target_category == "" or self.CLASS_NAMES_DICT[cls_id] == target_category:
+                bbox = BoundingBox()
+                print(xyxy)
+                bbox.id = str(self.CLASS_NAMES_DICT[cls_id])
+                bbox.probability = float(conf)
+                bbox.xmin = int(xyxy[0])
+                bbox.ymin = int(xyxy[1])
+                bbox.xmax = int(xyxy[2])
+                bbox.ymax = int(xyxy[3])
+                msg_boxes.bounding_boxes.append(bbox)
+        
+        return msg_boxes
 
     async def detection_action(self, goal_handle):
         self.get_logger().info('Executing YOLO detection action...')
@@ -83,11 +152,14 @@ class ObjectDetectionLive(Node):
         target_category = goal_handle.request.target_category
         
         if image is not None:
-            results = self.model.predict(image, conf=0.45)
-            frame, bboxes = self.plot_bboxes(results, image, target_category)
             
-            result.labeled_image = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
+            detections, annotated_img = self.predict_detections(image, self.draw)
+            bboxes = self.plot_bboxes(detections, target_category)
+            
             result.detected_objects = bboxes
+
+            if self.draw:
+                result.labeled_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
             
             if target_category != "":
                 result.success = Bool()
@@ -99,54 +171,27 @@ class ObjectDetectionLive(Node):
             goal_handle.abort()
             return result
 
-    def plot_bboxes(self, results, frame, target_category):
-        msg_boxes = BoundingBoxes()
-        detections = sv.Detections(
-            xyxy=results[0].boxes.xyxy.cpu().numpy(),
-            confidence=results[0].boxes.conf.cpu().numpy(),
-            class_id=results[0].boxes.cls.cpu().numpy().astype(int)
-        )
-
-        for (xyxy, _, conf, cls_id) in detections:
-            if target_category == "" or self.CLASS_NAMES_DICT[cls_id] == target_category:
-                bbox = BoundingBox()
-                bbox.class_id = str(self.CLASS_NAMES_DICT[cls_id])
-                bbox.probability = float(conf)
-                bbox.center.x = (xyxy[0] + xyxy[2]) / 2
-                bbox.center.y = (xyxy[1] + xyxy[3]) / 2
-                bbox.size_x = xyxy[2] - xyxy[0]
-                bbox.size_y = xyxy[3] - xyxy[1]
-                msg_boxes.bounding_boxes.append(bbox)
-
-        labels = [f"{self.CLASS_NAMES_DICT[cls_id]} {conf:0.2f}" 
-                for _, _, conf, cls_id, _ in detections]
-        
-        frame = sv.BoxAnnotator().annotate(
-            scene=frame,
-            detections=detections,
-            labels=labels
-        )
-        
-        return frame, msg_boxes
-
     def main_callback(self):
-        if self.cv_img is not None and self.msg_enable:
+        if self.cv_img is not None and self.enable_synchronous:
             start_time = time()
-            results = self.model(self.cv_img)
-            frame, bboxes = self.plot_bboxes(results, self.cv_img, "")
+
+            detections, annotated_img = self.predict_detections(self.cv_img, self.draw)
+            bboxes = self.plot_bboxes(detections, self.target_category)
             
             # Calculate FPS
             fps = 1 / (time() - start_time)
-            cv2.putText(frame, f'FPS: {int(fps)}', (20,70), 
+            cv2.putText(annotated_img, f'FPS: {int(fps)}', (20,70), 
                       cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0), 2)
             
-            self.pub_detection_img.publish(
-                self.bridge.cv2_to_imgmsg(frame, encoding="bgr8"))
+            if self.draw:
+                self.pub_detection_img.publish(
+                    self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8"))
+            
             self.pub_bounding_boxes.publish(bboxes)
 
 def main(args=None):
     rclpy.init(args=args)
-    node = ObjectDetectionLive()
+    node = YOLONode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

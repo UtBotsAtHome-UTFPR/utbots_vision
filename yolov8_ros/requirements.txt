@@ -1,0 +1,8 @@
+supervision==0.16.0
+ultralytics
+#==8.2.2
+opencv-python==4.11.0.86
+torch
+#==2.4.0
+numpy<2.0.0
+rospkg
