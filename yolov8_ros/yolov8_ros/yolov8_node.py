@@ -63,14 +63,20 @@ class YOLONode(Node, YOLODetector):
         self.declare_parameter('conf', 0.25)
         self.declare_parameter('draw', False)
         self.declare_parameter('target_category', '')
-        
+        self.declare_parameter('debug', False)
+        self.declare_parameter('enable_synchronous_startup', False)
+
+        # self.declare_parameter('callback in ms', False)
+
         self.weights = self.get_parameter('weights').get_parameter_value().string_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
         self.device = self.get_parameter('device').get_parameter_value().string_value
         self.conf = self.get_parameter('conf').get_parameter_value().integer_value
         self.draw = self.get_parameter('draw').get_parameter_value().bool_value
         self.target_category = self.get_parameter('target_category').get_parameter_value().string_value
-        
+        self.debug=self.get_parameter('debug').get_parameter_value().bool_value
+        self.enable_synchronous =self.get_parameter('enable_synchronous_startup').get_parameter_value().bool_value
+
         YOLODetector.__init__(self)
         self.get_logger().info(f"YOLOv8 Node initialized with device: {self.device}")
         
@@ -98,7 +104,6 @@ class YOLONode(Node, YOLODetector):
             '/utbots/vision/enable_detection',
             self.enable_detection
         )
-        self.enable_synchronous = False
         
         # Action server initialization
         self._action_server = ActionServer(
@@ -113,6 +118,8 @@ class YOLONode(Node, YOLODetector):
         
     def callback_img(self, msg):
         self.cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        if(self.debug):
+            self.get_logger().info(f"[YOLO] Callback image")
 
     def enable_detection(self, request, response):
         self.enable_synchronous = request.data
