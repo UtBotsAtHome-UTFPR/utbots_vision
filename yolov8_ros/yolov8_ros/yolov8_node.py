@@ -127,7 +127,7 @@ class YOLONode(Node, YOLODetector):
         response.message = "Detection enabled" if self.enable_synchronous else "Detection disabled"
         return response
 
-    def plot_bboxes(self, detections, target_category):
+    def format_bbox_msg(self, detections, target_category):
         msg_boxes = BoundingBoxes()
 
         for i in range(len(detections)):
@@ -161,7 +161,7 @@ class YOLONode(Node, YOLODetector):
         if image is not None:
             
             detections, annotated_img = self.predict_detections(image, self.draw)
-            bboxes = self.plot_bboxes(detections, target_category)
+            bboxes = self.format_bbox_msg(detections, target_category)
             
             result.detected_objects = bboxes
 
@@ -183,7 +183,7 @@ class YOLONode(Node, YOLODetector):
             start_time = time()
 
             detections, annotated_img = self.predict_detections(self.cv_img, self.draw)
-            bboxes = self.plot_bboxes(detections, self.target_category)
+            bboxes = self.format_bbox_msg(detections, self.target_category)
             
             # Calculate FPS
             fps = 1 / (time() - start_time)
