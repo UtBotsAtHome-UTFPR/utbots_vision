@@ -14,7 +14,7 @@ from utbots_msgs.msg import BoundingBoxes, BoundingBox
 from std_msgs.msg import Bool
 from std_srvs.srv import SetBool
 from cv_bridge import CvBridge
-from utbots_actions.action import YOLODetection
+from utbots_actions.action import YOLODetection, YOLOBatchDetection
 
 class YOLONode(Node, YOLODetector):
     """
@@ -112,14 +112,26 @@ class YOLONode(Node, YOLODetector):
             'YOLO_detection',
             self.detection_action
         )
+
+        self._batch_action_server = ActionServer(
+            self,
+            YOLOBatchDetection,
+            'YOLO_batch_detection',
+            self.batch_detection_action
+        )
         
         # Timer for synchronous processing
         self.timer = self.create_timer(0.1, self.main_callback)
+
+        self.count_batch = False
+        self.got_image = False
         
     def callback_img(self, msg):
         self.cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
         if(self.debug):
             self.get_logger().info(f"[YOLO] Callback image")
+        if self.count_batch:
+            self.got_image = True
 
     def enable_detection(self, request, response):
         self.enable_synchronous = request.data
@@ -175,6 +187,94 @@ class YOLONode(Node, YOLODetector):
             goal_handle.succeed()
             return result
         else:
+            goal_handle.abort()
+            return result
+
+    async def batch_detection_action(self, goal_handle):
+        self.get_logger().info('Executing YOLO detection batch action...')
+        result = YOLODetection.Result()
+        buffer_size = goal_handle.request.buffer_size
+        target_category = goal_handle.request.target_category
+        iou_threshold = goal_handle.request.iou_threshold
+        support_threshold = goal_handle.request.support_threshold
+        self.count_batch = True
+        self.bboxes = BoundingBoxes()
+
+        try:
+            if self.got_image:
+                image = self.cv_img
+                self.bboxes = self.format_bbox_msg(detections, target_category)
+                self.bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
+
+            def compute_iou(box1, box2):
+                        # box: [xmin, ymin, xmax, ymax]
+                        xA = max(box1.xmin, box2.xmin)
+                        yA = max(box1.ymin, box2.ymin)
+                        xB = min(box1.xmax, box2.xmax)
+                        yB = min(box1.ymax, box2.ymax)
+
+                        interW = max(0, xB - xA)
+                        interH = max(0, yB - yA)
+                        interArea = interW * interH
+
+                        box1Area = (box1.xmax - box1.xmin) * (box1.ymax - box1.ymin)
+                        box2Area = (box2.xmax - box2.xmin) * (box2.ymax - box2.ymin)
+
+                        unionArea = box1Area + box2Area - interArea
+                        if unionArea == 0:
+                            return 0.0
+                        return interArea / unionArea
+
+            while(i < buffer_size):
+                if self.got_image:
+                    image = self.cv_img
+                            
+                    if image is not None:
+                        detections, annotated_img = self.predict_detections(image, False)
+                        bboxes = self.format_bbox_msg(detections, target_category)
+
+                        for bbox in bboxes.bounding_boxes:
+                            max_iou = 0.0
+                            max_idx = -1
+                            for idx, ref_bbox in enumerate(self.bboxes.bounding_boxes):
+                                iou = compute_iou(bbox, ref_bbox)
+                                if iou > max_iou:
+                                    max_iou = iou
+                                    max_idx = idx
+                            if max_iou > iou_threshold and max_idx != -1:
+                                # Update bbox in self.bboxes with mean coordinates
+                                ref_bbox = self.bboxes.bounding_boxes[max_idx]
+                                n = self.bbox_contributors[max_idx]
+                                ref_bbox.xmin = int((ref_bbox.xmin + bbox.xmin) / 2)
+                                ref_bbox.ymin = int((ref_bbox.ymin + bbox.ymin) / 2)
+                                ref_bbox.xmax = int((ref_bbox.xmax + bbox.xmax) / 2)
+                                ref_bbox.ymax = int((ref_bbox.ymax + bbox.ymax) / 2)
+                                ref_bbox.id = bbox.id
+                                self.bbox_contributors[max_idx] += 1
+                            else:
+                                # Add new bbox and initialize its contributors count
+                                self.bboxes.bounding_boxes.append(bbox)
+                                self.bbox_contributors.append(1)
+                i += 1
+                self.got_image = False
+                
+            self.count_batch = False
+            self.bbox_contributors = [c / buffer_size for c in self.bbox_contributors]
+
+            # Remove bboxes with contributors less than support_threshold
+            filtered_bboxes = []
+            filtered_contributors = []
+            for bbox, contrib in zip(self.bboxes.bounding_boxes, self.bbox_contributors):
+                if contrib >= support_threshold:
+                    filtered_bboxes.append(bbox)
+                    filtered_contributors.append(contrib)
+
+            result.detected_objects = filtered_bboxes
+            goal_handle.succeed()
+            return result
+
+        except Exception as e:
+            self.get_logger().error(f"Error during batch detection: {str(e)}")
             goal_handle.abort()
             return result
 
