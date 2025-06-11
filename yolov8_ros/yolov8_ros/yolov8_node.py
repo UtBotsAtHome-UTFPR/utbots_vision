@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 from .yolov8_detector import YOLODetector
 import torch
-import numpy as np
 import cv2
-from time import time
-from ultralytics import YOLO
+import queue
 import supervision as sv
+from time import time
+import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionServer
+from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import Image
 from utbots_msgs.msg import BoundingBoxes, BoundingBox
 from std_msgs.msg import Bool
@@ -148,7 +149,6 @@ class YOLONode(Node, YOLODetector):
             cls_id = detections.class_id[i]
             if target_category == "" or self.CLASS_NAMES_DICT[cls_id] == target_category:
                 bbox = BoundingBox()
-                print(xyxy)
                 bbox.id = str(self.CLASS_NAMES_DICT[cls_id])
                 bbox.probability = float(conf)
                 bbox.xmin = int(xyxy[0])
@@ -192,19 +192,20 @@ class YOLONode(Node, YOLODetector):
 
     async def batch_detection_action(self, goal_handle):
         self.get_logger().info('Executing YOLO detection batch action...')
-        result = YOLODetection.Result()
-        buffer_size = goal_handle.request.buffer_size
-        target_category = goal_handle.request.target_category
-        iou_threshold = goal_handle.request.iou_threshold
-        support_threshold = goal_handle.request.support_threshold
+        result = YOLOBatchDetection.Result()
+        batch_size = goal_handle.request.batch_size.data
+        target_category = goal_handle.request.target_category.data
+        iou_threshold = goal_handle.request.iou_threshold.data
+        support_threshold = goal_handle.request.support_threshold.data
         self.count_batch = True
         self.bboxes = BoundingBoxes()
+        bbox_contributors = []
 
         try:
             if self.got_image:
                 image = self.cv_img
                 self.bboxes = self.format_bbox_msg(detections, target_category)
-                self.bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
+                bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
 
             def compute_iou(box1, box2):
                         # box: [xmin, ymin, xmax, ymax]
@@ -225,8 +226,10 @@ class YOLONode(Node, YOLODetector):
                             return 0.0
                         return interArea / unionArea
 
-            while(i < buffer_size):
+            i = 0     
+            while(i < batch_size):
                 if self.got_image:
+                    print(i)
                     image = self.cv_img
                             
                     if image is not None:
@@ -244,32 +247,60 @@ class YOLONode(Node, YOLODetector):
                             if max_iou > iou_threshold and max_idx != -1:
                                 # Update bbox in self.bboxes with mean coordinates
                                 ref_bbox = self.bboxes.bounding_boxes[max_idx]
-                                n = self.bbox_contributors[max_idx]
+                                n = bbox_contributors[max_idx]
                                 ref_bbox.xmin = int((ref_bbox.xmin + bbox.xmin) / 2)
                                 ref_bbox.ymin = int((ref_bbox.ymin + bbox.ymin) / 2)
                                 ref_bbox.xmax = int((ref_bbox.xmax + bbox.xmax) / 2)
                                 ref_bbox.ymax = int((ref_bbox.ymax + bbox.ymax) / 2)
                                 ref_bbox.id = bbox.id
-                                self.bbox_contributors[max_idx] += 1
+                                bbox_contributors[max_idx] += 1
                             else:
                                 # Add new bbox and initialize its contributors count
                                 self.bboxes.bounding_boxes.append(bbox)
-                                self.bbox_contributors.append(1)
-                i += 1
-                self.got_image = False
+                                bbox_contributors.append(1)
+                    i += 1
+                    self.got_image = False
                 
             self.count_batch = False
-            self.bbox_contributors = [c / buffer_size for c in self.bbox_contributors]
+            bbox_contributors = [c / batch_size for c in bbox_contributors]
 
             # Remove bboxes with contributors less than support_threshold
-            filtered_bboxes = []
+            filtered_bboxes = BoundingBoxes()
             filtered_contributors = []
-            for bbox, contrib in zip(self.bboxes.bounding_boxes, self.bbox_contributors):
+            for bbox, contrib in zip(self.bboxes.bounding_boxes, bbox_contributors):
                 if contrib >= support_threshold:
-                    filtered_bboxes.append(bbox)
+                    filtered_bboxes.bounding_boxes.append(bbox)
                     filtered_contributors.append(contrib)
 
-            result.detected_objects = filtered_bboxes
+            xyxy_list = []
+            conf_list = []
+            labels = []
+
+            if len(filtered_bboxes.bounding_boxes) > 0:
+                for bbox in filtered_bboxes.bounding_boxes:
+                # Prepare [xmin, ymin, xmax, ymax]
+                    xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
+                    conf_list.append(bbox.probability)
+                    # Assign numeric class ID
+                    class_name = target_category
+
+                    labels.append(f"{class_name} {bbox.probability:.2f}")
+
+                detections = sv.Detections(
+                    xyxy=np.array(xyxy_list, dtype=np.float32),
+                    confidence=np.array(conf_list, dtype=np.float32)
+                )
+
+                annotated_img = sv.BoxAnnotator().annotate(
+                    scene=self.cv_img,
+                    detections=detections,
+                    labels=labels
+                )
+
+                self.pub_detection_img.publish(
+                        self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8"))
+
+            result.detected_objs = filtered_bboxes
             goal_handle.succeed()
             return result
 
@@ -299,8 +330,10 @@ class YOLONode(Node, YOLODetector):
 def main(args=None):
     rclpy.init(args=args)
     node = YOLONode()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     node.destroy_node()
