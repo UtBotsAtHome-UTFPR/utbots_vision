@@ -9,7 +9,7 @@ class PictureTaker:
     def __init__(self):
 
         # Should create /faces
-        self.train_dir = os.path.realpath(os.path.dirname(__file__)) + "/../faces"
+        self.train_dir = path = os.path.expanduser("~/.faces")
 
 
     def picture_path_maker(self, name="Operator"):
@@ -23,12 +23,13 @@ class PictureTaker:
         - **path**: str
         """
 
-        path = os.path.realpath(os.path.dirname(__file__)) + "/faces/" + name + "/"
+        path = self.train_dir + "/" + name + "/"
 
         # Check whether the specified path exists or not
-        if not os.path.exists(path):    
+        if not os.path.exists(path):   
             os.makedirs(path)
-
+        print(os.path.exists(path))
+        print(path)
         return path
 
     def crop_img(self, img: cv2.typing.MatLike, i=0):
@@ -50,9 +51,16 @@ class PictureTaker:
         detector = backends[3] # Utilizar um desses no lugar de chamar o modelo de análise é melhor
         align = True # Melhora 6% o reconhecimento (aparentemente)
 
-        face_objs = DeepFace.extract_faces(img_path = img, detector_backend = detector, align = align, enforce_detection=False)
+        try:
+            face_objs = DeepFace.extract_faces(img_path = img, detector_backend = detector, align = align, enforce_detection=True)
+        except:
+            return None
 
-        if len(face_objs) != 1:
+        if len(face_objs) == 0:# I am pretty sure this will not get called because of the try catch but it's here for safety
+            print("0 faces")
+            return None
+        elif len(face_objs) >= 2:
+            print("Too many faces")
             return None
 
         area = face_objs[0]["facial_area"]
@@ -67,8 +75,10 @@ class PictureTaker:
         return face_img
     
     def save_img(self, path, img):
-
-        cv2.imwrite(path + ".jpeg", img)
+        
+        print(path)
+        if cv2.imwrite(path + ".jpeg", img):
+            print("Done")
 
 if __name__ == "__main__":
     program = PictureTaker()

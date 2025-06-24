@@ -11,7 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools', 'rclpy', 'rclpy_action', 'utbots_actions', 'utbots_msgs', 'utbots_dependencies'],
+    install_requires=['setuptools', 'rclpy', 'rclpy_action', 'utbots_actions', 'utbots_msgs', 'utbots_dependencies', 'cv_bridge'],
     zip_safe=True,
     maintainer='david',
     maintainer_email='davidsegalle@alunos.utfpr.edu.br',
@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'recognize = utbots_face_recognition.recognize:main',
+            'action_tester = utbots_face_recognition.action_tester:main'
         ],
     },
 )
