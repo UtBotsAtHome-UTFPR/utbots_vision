@@ -9,7 +9,7 @@ from rclpy.action import ActionServer
 
 from sensor_msgs.msg import Image, RegionOfInterest
 from rclpy.task import Future
-#from cv_bridge import CvBridge
+from cv_bridge import CvBridge
 from rclpy import wait_for_message
 
 from utbots_actions.action import NewFace, Recognition#, Train
