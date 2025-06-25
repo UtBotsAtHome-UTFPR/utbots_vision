@@ -37,7 +37,7 @@ rosdep install --from-paths src --ignore-src -r -y
 
 ### Updating
 
-To push changes to the submodule packages ([mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track), [utbots_face_recognition](https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition)) you should go to their repository path and perform a simple add, commit and push. After, you have to push the changes to the stack, going back to the stack repository path and doing the following command:
+To push changes to the submodule packages ([mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track), ~~[utbots_face_recognition](https://github.com/UtBotsAtHome-UTFPR/utbots_face_recognition)~~) you should go to their repository path and perform a simple add, commit and push. After, you have to push the changes to the stack, going back to the stack repository path and doing the following command:
 
 ```bash
 git submodule update --remote --merge
@@ -79,4 +79,29 @@ To launch the driver and its topics, run:
 
 ```bash
 roslaunch freenect_launch freenect.launch
+```
+
+### utbots_face_recognition
+
+Loading everything for the first time may take several seconds and subsequent launches make take some seconds if the computer is bad, have patience. For a significant number of images use cuda
+
+#### Dependencies
+
+This package is dependant on a series on problematic libraries combinations
+
+Select a path (full path, no shortcuts) for the venv and set setup.cfg path to point to it.
+
+```bash
+pip uninstall cv_bridge # just in case so it can pull from sudo apt install ros-humble-cv-bridge
+pip install deepface
+pip install tf-keras
+pip install --no-cache-dir --upgrade --ignore-installed opencv-python
+pip install numpy==1.26.4 # This will say sucessfully installed numpy 2.2.1. Don't ask me but it works
+```
+
+#### Running
+
+```bash
+ros2 run usb_cam usb_cam_node_exe
+ros2 run utbots_face_recognition recognize
 ```
