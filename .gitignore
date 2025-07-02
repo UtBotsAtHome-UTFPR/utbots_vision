@@ -4,3 +4,4 @@ devel/*
 virtualenv/
 yolov8_ros/setup.cfg
 yolov8_ros/yolo11n.pt
+yolo11n.pt

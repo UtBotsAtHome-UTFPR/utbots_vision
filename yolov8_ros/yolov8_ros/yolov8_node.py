@@ -4,7 +4,7 @@ import torch
 import cv2
 import queue
 import supervision as sv
-from time import time
+import time
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -16,6 +16,14 @@ from std_msgs.msg import Bool
 from std_srvs.srv import SetBool
 from cv_bridge import CvBridge
 from utbots_actions.action import YOLODetection, YOLOBatchDetection
+from utbots_srvs.srv import LoadModel
+
+from enum import Enum
+
+class Model(Enum):
+    coco = '/ros2_ws/src/utbots_vision/yolov8_ros/best.pt' # Put this in a weight folder in the future
+    trained = "/path/to/trained/model"
+
 
 class YOLONode(Node, YOLODetector):
     """
@@ -58,7 +66,7 @@ class YOLONode(Node, YOLODetector):
         Node.__init__(self, 'yolo_node')
         
         # Set parameters
-        self.declare_parameter('weights', '/ros2_ws/src/yolov8_ros/weights/best.pt')
+        self.declare_parameter('weights', str(Model.coco)) # Create a weight folder and put this in it
         self.declare_parameter('camera_topic', '/image_raw')
         self.declare_parameter('device', 'cuda' if torch.cuda.is_available() else 'cpu')
         self.declare_parameter('conf', 0.25)
@@ -102,8 +110,14 @@ class YOLONode(Node, YOLODetector):
         # Service to enable/disable synchronous processing
         self.srv_enable = self.create_service(
             SetBool,
-            '/utbots/vision/enable_detection',
+            '/yolo_node/enable_detection',
             self.enable_detection
+        )
+
+        self.srv_load_model = self.create_service(
+            LoadModel,
+            '/yolo_node/load_model',
+            self.load_model_cb
         )
         
         # Action server initialization
@@ -138,6 +152,25 @@ class YOLONode(Node, YOLODetector):
         self.enable_synchronous = request.data
         response.success = True
         response.message = "Detection enabled" if self.enable_synchronous else "Detection disabled"
+        return response
+    
+    def load_model_cb(self, request, response):
+        reactivate = self.enable_synchronous
+
+        self.enable_synchronous = False
+
+        time.sleep(0.2)
+
+        if request.data == "coco":
+            self.weights = str(Model.coco)
+        elif request.data == "trained":
+            self.weights = str(Model.trained)
+        else:
+            self.weights = request.data
+
+        self.enable_synchronous = reactivate
+
+        response.success = True
         return response
 
     def format_bbox_msg(self, detections, target_category):
@@ -311,20 +344,19 @@ class YOLONode(Node, YOLODetector):
 
     def main_callback(self):
         if self.cv_img is not None and self.enable_synchronous:
-            start_time = time()
+            start_time = time.time()
 
             detections, annotated_img = self.predict_detections(self.cv_img, self.draw)
             bboxes = self.format_bbox_msg(detections, self.target_category)
             
             # Calculate FPS
-            fps = 1 / (time() - start_time)
+            fps = 1 / (time.time() - start_time)
             cv2.putText(annotated_img, f'FPS: {int(fps)}', (20,70), 
                       cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0), 2)
             
             if self.draw:
                 self.pub_detection_img.publish(
                     self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8"))
-            
             self.pub_bounding_boxes.publish(bboxes)
 
 def main(args=None):
