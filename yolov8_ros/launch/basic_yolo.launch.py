@@ -23,17 +23,17 @@ def generate_launch_description():
             ]
         ),
 
-        Node(
-            package='usb_cam',
-            executable='usb_cam_node_exe',
-            name='usb_cam',
-            parameters=[{
-                'video_device': '/dev/video2',
-                'image_width': 640,
-                'image_height': 480,
-                'framerate': 30.0,
-                'pixel_format': 'yuyv'
-            }],
-            output='screen'
-        ),
+        #Node(
+        #    package='usb_cam',
+        #    executable='usb_cam_node_exe',
+        #    name='usb_cam',
+        #    parameters=[{
+        #        'video_device': '/dev/video2',
+        #        'image_width': 640,
+        #        'image_height': 480,
+        #        'framerate': 30.0,
+        #        'pixel_format': 'yuyv'
+        #    }],
+        #    output='screen'
+        #),
     ])   
