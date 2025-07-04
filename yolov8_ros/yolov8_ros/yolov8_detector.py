@@ -3,6 +3,7 @@ import numpy as np
 from ultralytics import YOLO
 import supervision as sv
 import torch
+import gc
 
 class YOLODetector():
     """
@@ -28,7 +29,7 @@ class YOLODetector():
             task=self.task
         )
 
-    def load_model(self, weights, task):
+    def load_model(self, weights, task = None):
         """ Loads the YOLO model with the selected parameters"""
         # TODO: task param
         self.model = YOLO(weights)
@@ -37,9 +38,20 @@ class YOLODetector():
 
     def unload_model(self):
         """ Unloads the model and stops memory usage """
-        if hasattr(self, 'pose'):
-            self.model.close()
+        print(torch.cuda.memory_allocated())
+        if hasattr(self, 'model'):
+            self.model.to("cpu")
             del self.model
+            self.model = None
+
+        # Run garbage collector
+        gc.collect()
+
+        # Empty PyTorch CUDA cache
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+        print(torch.cuda.memory_allocated())
 
     def predict_detections(self, cv_image, draw = False):
         # Check if the image is in cv format

@@ -21,7 +21,7 @@ from utbots_srvs.srv import LoadModel
 from enum import Enum
 
 class Model(Enum):
-    coco = '/ros2_ws/src/utbots_vision/yolov8_ros/best.pt' # Put this in a weight folder in the future
+    coco = '~/ros2_ws/src/utbots_vision/yolov8_ros/yolo11n.pt' # Put this in a weight folder in the future
     trained = "/path/to/trained/model"
 
 
@@ -155,6 +155,13 @@ class YOLONode(Node, YOLODetector):
         return response
     
     def load_model_cb(self, request, response):
+        print(Model.coco.value)
+        if request.data == "":
+            self.enable_synchronous = False
+            time.sleep(0.2)
+            self.unload_model()
+            return response
+
         reactivate = self.enable_synchronous
 
         self.enable_synchronous = False
@@ -162,12 +169,13 @@ class YOLONode(Node, YOLODetector):
         time.sleep(0.2)
 
         if request.data == "coco":
-            self.weights = str(Model.coco)
+            self.load_model(str(Model.coco.value))
         elif request.data == "trained":
-            self.weights = str(Model.trained)
+            self.load_model(str(Model.trained))
         else:
             self.weights = request.data
-
+        #print(self.weights)
+        
         self.enable_synchronous = reactivate
 
         response.success = True
