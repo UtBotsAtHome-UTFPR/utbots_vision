@@ -186,6 +186,7 @@ class YOLONode(Node, YOLODetector):
 
         for i in range(len(detections)):
             xyxy = detections.xyxy[i]
+            xyxyn = detections.data["xyxyn"][i]
             conf = detections.confidence[i]
             cls_id = detections.class_id[i]
             if target_category == "" or self.CLASS_NAMES_DICT[cls_id] == target_category:
@@ -196,6 +197,11 @@ class YOLONode(Node, YOLODetector):
                 bbox.ymin = int(xyxy[1])
                 bbox.xmax = int(xyxy[2])
                 bbox.ymax = int(xyxy[3])
+                bbox.xminn = float(xyxyn[0])
+                bbox.yminn = float(xyxyn[1])
+                bbox.xmaxn = float(xyxyn[2])
+                bbox.ymaxn = float(xyxyn[3])
+                print(xyxyn)
                 msg_boxes.bounding_boxes.append(bbox)
         
         return msg_boxes
@@ -293,6 +299,10 @@ class YOLONode(Node, YOLODetector):
                                 ref_bbox.ymin = int((ref_bbox.ymin + bbox.ymin) / 2)
                                 ref_bbox.xmax = int((ref_bbox.xmax + bbox.xmax) / 2)
                                 ref_bbox.ymax = int((ref_bbox.ymax + bbox.ymax) / 2)
+                                ref_bbox.xminn = float((ref_bbox.xminn + bbox.xminn) / 2)
+                                ref_bbox.yminn = float((ref_bbox.yminn + bbox.yminn) / 2)
+                                ref_bbox.xmaxn = float((ref_bbox.xmaxn + bbox.xmaxn) / 2)
+                                ref_bbox.ymaxn = float((ref_bbox.ymaxn + bbox.ymaxn) / 2)
                                 ref_bbox.id = bbox.id
                                 bbox_contributors[max_idx] += 1
                             else:
@@ -327,15 +337,26 @@ class YOLONode(Node, YOLODetector):
 
                     labels.append(f"{class_name} {bbox.probability:.2f}")
 
+                # Create Detections object (this part is correct)
                 detections = sv.Detections(
                     xyxy=np.array(xyxy_list, dtype=np.float32),
                     confidence=np.array(conf_list, dtype=np.float32)
                 )
 
-                annotated_img = sv.BoxAnnotator().annotate(
-                    scene=self.cv_img,
+                box_annotator = sv.BoxAnnotator(color_lookup=sv.ColorLookup.INDEX)
+                label_annotator = sv.LabelAnnotator(color_lookup=sv.ColorLookup.INDEX)
+
+                # First, annotate the boxes
+                annotated_img = box_annotator.annotate(
+                    scene=self.cv_img.copy(), # It's good practice to work on a copy of the image
+                    detections=detections
+                )
+
+                # Then, annotate the labels on the already annotated image
+                annotated_img = label_annotator.annotate(
+                    scene=annotated_img,
                     detections=detections,
-                    labels=labels
+                    labels=labels # Pass your list of labels here
                 )
 
                 self.pub_detection_img.publish(

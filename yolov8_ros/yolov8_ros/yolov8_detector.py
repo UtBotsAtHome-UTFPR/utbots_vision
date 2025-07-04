@@ -70,7 +70,8 @@ class YOLODetector():
         detections = sv.Detections(
             xyxy=results[0].boxes.xyxy.cpu().numpy(),
             confidence=results[0].boxes.conf.cpu().numpy(),
-            class_id=results[0].boxes.cls.cpu().numpy().astype(int)
+            class_id=results[0].boxes.cls.cpu().numpy().astype(int),
+            data={"xyxyn": results[0].boxes.xyxyn.cpu().numpy()}
         )
 
         # If draw, annotate the cv_image frame
