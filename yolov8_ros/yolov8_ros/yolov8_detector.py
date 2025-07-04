@@ -38,7 +38,6 @@ class YOLODetector():
 
     def unload_model(self):
         """ Unloads the model and stops memory usage """
-        print(torch.cuda.memory_allocated())
         if hasattr(self, 'model'):
             self.model.to("cpu")
             del self.model
@@ -51,7 +50,6 @@ class YOLODetector():
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
-        print(torch.cuda.memory_allocated())
 
     def predict_detections(self, cv_image, draw = False):
         # Check if the image is in cv format
