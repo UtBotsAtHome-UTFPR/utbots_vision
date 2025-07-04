@@ -39,7 +39,7 @@ class YOLODetector():
     def unload_model(self):
         """ Unloads the model and stops memory usage """
         if hasattr(self, 'model'):
-            self.model.to("cpu")
+            self.model.to("meta")
             del self.model
             self.model = None
 
