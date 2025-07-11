@@ -249,6 +249,7 @@ class YOLONode(Node, YOLODetector):
         try:
             if self.got_image:
                 image = self.cv_img
+                detections, annotated_img = self.predict_detections(image, False)
                 self.bboxes = self.format_bbox_msg(detections, target_categories)
                 bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
 
