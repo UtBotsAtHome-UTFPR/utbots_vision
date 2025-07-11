@@ -240,7 +240,7 @@ class YOLONode(Node, YOLODetector):
         self.get_logger().info('Executing YOLO detection batch action...')
         result = YOLOBatchDetection.Result()
         batch_size = goal_handle.request.batch_size.data
-        target_categories = goal_handle.request.target_categories.data
+        target_categories = goal_handle.request.target_categories
         iou_threshold = goal_handle.request.iou_threshold.data
         support_threshold = goal_handle.request.support_threshold.data
         self.count_batch = True
