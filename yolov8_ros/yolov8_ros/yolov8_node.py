@@ -41,8 +41,8 @@ class YOLONode(Node, YOLODetector):
     Confidence threshold for filtering detections.
     - `draw` (bool)
     Whether to draw bounding boxes on the output image.
-    - `target_category` (string)
-    Target class name to filter detections. If empty, all classes are allowed.
+    - `target_categories` (list of string)
+    Target class names to filter detections. If empty, all classes are allowed.
 
     ## Publishers:
     - `/utbots/vision/detection/image` (sensor_msgs/Image)
@@ -71,7 +71,7 @@ class YOLONode(Node, YOLODetector):
         self.declare_parameter('device', 'cuda' if torch.cuda.is_available() else 'cpu')
         self.declare_parameter('conf', 0.25)
         self.declare_parameter('draw', False)
-        self.declare_parameter('target_category', '')
+        self.declare_parameter('target_categories', [])
         self.declare_parameter('debug', False)
         self.declare_parameter('enable_synchronous_startup', False)
 
@@ -82,7 +82,7 @@ class YOLONode(Node, YOLODetector):
         self.device = self.get_parameter('device').get_parameter_value().string_value
         self.conf = self.get_parameter('conf').get_parameter_value().integer_value
         self.draw = self.get_parameter('draw').get_parameter_value().bool_value
-        self.target_category = self.get_parameter('target_category').get_parameter_value().string_value
+        self.target_categories = self.get_parameter('target_categories').get_parameter_value().string_array_value
         self.debug=self.get_parameter('debug').get_parameter_value().bool_value
         self.enable_synchronous =self.get_parameter('enable_synchronous_startup').get_parameter_value().bool_value
 
@@ -181,7 +181,7 @@ class YOLONode(Node, YOLODetector):
         response.success = True
         return response
 
-    def format_bbox_msg(self, detections, target_category):
+    def format_bbox_msg(self, detections, target_categories):
         msg_boxes = BoundingBoxes()
 
         for i in range(len(detections)):
@@ -189,7 +189,7 @@ class YOLONode(Node, YOLODetector):
             xyxyn = detections.data["xyxyn"][i]
             conf = detections.confidence[i]
             cls_id = detections.class_id[i]
-            if target_category == "" or self.CLASS_NAMES_DICT[cls_id] == target_category:
+            if not target_categories or self.CLASS_NAMES_DICT[cls_id] in target_categories:
                 bbox = BoundingBox()
                 bbox.id = str(self.CLASS_NAMES_DICT[cls_id])
                 bbox.probability = float(conf)
@@ -201,7 +201,6 @@ class YOLONode(Node, YOLODetector):
                 bbox.yminn = float(xyxyn[1])
                 bbox.xmaxn = float(xyxyn[2])
                 bbox.ymaxn = float(xyxyn[3])
-                print(xyxyn)
                 msg_boxes.bounding_boxes.append(bbox)
         
         return msg_boxes
@@ -215,19 +214,19 @@ class YOLONode(Node, YOLODetector):
         else:
             image = self.cv_img
             
-        target_category = goal_handle.request.target_category
+        target_categories = goal_handle.request.target_categories
         
         if image is not None:
             
             detections, annotated_img = self.predict_detections(image, self.draw)
-            bboxes = self.format_bbox_msg(detections, target_category)
+            bboxes = self.format_bbox_msg(detections, target_categories)
             
             result.detected_objects = bboxes
 
             if self.draw:
                 result.labeled_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
             
-            if target_category != "":
+            if target_categories != []:
                 result.success = Bool()
                 result.success.data = len(bboxes.bounding_boxes) > 0
             
@@ -241,7 +240,7 @@ class YOLONode(Node, YOLODetector):
         self.get_logger().info('Executing YOLO detection batch action...')
         result = YOLOBatchDetection.Result()
         batch_size = goal_handle.request.batch_size.data
-        target_category = goal_handle.request.target_category.data
+        target_categories = goal_handle.request.target_categories.data
         iou_threshold = goal_handle.request.iou_threshold.data
         support_threshold = goal_handle.request.support_threshold.data
         self.count_batch = True
@@ -251,7 +250,7 @@ class YOLONode(Node, YOLODetector):
         try:
             if self.got_image:
                 image = self.cv_img
-                self.bboxes = self.format_bbox_msg(detections, target_category)
+                self.bboxes = self.format_bbox_msg(detections, target_categories)
                 bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
 
             def compute_iou(box1, box2):
@@ -281,7 +280,7 @@ class YOLONode(Node, YOLODetector):
                             
                     if image is not None:
                         detections, annotated_img = self.predict_detections(image, False)
-                        bboxes = self.format_bbox_msg(detections, target_category)
+                        bboxes = self.format_bbox_msg(detections, target_categories)
 
                         for bbox in bboxes.bounding_boxes:
                             max_iou = 0.0
@@ -333,7 +332,7 @@ class YOLONode(Node, YOLODetector):
                     xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
                     conf_list.append(bbox.probability)
                     # Assign numeric class ID
-                    class_name = target_category
+                    class_name = self.CLASS_NAMES_DICT[bbox.id]
 
                     labels.append(f"{class_name} {bbox.probability:.2f}")
 
@@ -376,7 +375,7 @@ class YOLONode(Node, YOLODetector):
             start_time = time.time()
 
             detections, annotated_img = self.predict_detections(self.cv_img, self.draw)
-            bboxes = self.format_bbox_msg(detections, self.target_category)
+            bboxes = self.format_bbox_msg(detections, self.target_categories)
             
             # Calculate FPS
             fps = 1 / (time.time() - start_time)
