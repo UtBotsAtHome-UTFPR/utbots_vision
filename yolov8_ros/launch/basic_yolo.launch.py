@@ -12,7 +12,7 @@ def generate_launch_description():
             parameters=[
                 {
                     'weights':'/ros2_ws/src/yolov8_ros/weights/best.pt',
-                    'camera_topic':'/image_raw',
+                    'camera_topic':'/camera/camera/color/image_raw',
                     'device':'cuda',
                     'conf': 0.25,
                     'draw': True,
