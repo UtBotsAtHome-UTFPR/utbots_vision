@@ -20,14 +20,14 @@ class RecognizeActionClient(Node):
 
         self.new_face_action_client.wait_for_server()
 
-        return self.new_face_action_client.send_goal_async(goal_msg)
+        return self.new_face_action_client.send_goal(goal_msg)
     
     def send_recognition_goal(self):
         goal_msg = Recognition.Goal()
 
         self.recognition_action_client.wait_for_server()
 
-        return self.recognition_action_client.send_goal_async(goal_msg)
+        return self.recognition_action_client.send_goal(goal_msg)
 
 
 
@@ -38,9 +38,6 @@ def main(args=None):
     action_client = RecognizeActionClient()
 
     future = action_client.send_new_face_goal()
-    #future = action_client.send_recognition_goal()
-
-
     rclpy.spin_until_future_complete(action_client, future)
 
 if __name__ == '__main__':
