@@ -189,7 +189,7 @@ class YOLONode(Node, YOLODetector):
             xyxyn = detections.data["xyxyn"][i]
             conf = detections.confidence[i]
             cls_id = detections.class_id[i]
-            if not target_categories or self.CLASS_NAMES_DICT[cls_id] in target_categories:
+            if not target_categories or self.CLASS_NAMES_DICT[cls_id] in [s.data for s in target_categories]:
                 bbox = BoundingBox()
                 bbox.id = str(self.CLASS_NAMES_DICT[cls_id])
                 bbox.probability = float(conf)
@@ -202,7 +202,6 @@ class YOLONode(Node, YOLODetector):
                 bbox.xmaxn = float(xyxyn[2])
                 bbox.ymaxn = float(xyxyn[3])
                 msg_boxes.bounding_boxes.append(bbox)
-        
         return msg_boxes
 
     async def detection_action(self, goal_handle):
@@ -246,10 +245,11 @@ class YOLONode(Node, YOLODetector):
         self.count_batch = True
         self.bboxes = BoundingBoxes()
         bbox_contributors = []
-
+        self.get_logger().info(f"Target categories{target_categories}")
         try:
             if self.got_image:
                 image = self.cv_img
+                detections, annotated_img = self.predict_detections(image, False)
                 self.bboxes = self.format_bbox_msg(detections, target_categories)
                 bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
 
@@ -332,7 +332,7 @@ class YOLONode(Node, YOLODetector):
                     xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
                     conf_list.append(bbox.probability)
                     # Assign numeric class ID
-                    class_name = self.CLASS_NAMES_DICT[bbox.id]
+                    class_name = bbox.id
 
                     labels.append(f"{class_name} {bbox.probability:.2f}")
 

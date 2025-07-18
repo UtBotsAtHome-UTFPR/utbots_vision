@@ -160,7 +160,7 @@ class RecognizeAction(Node):
                     self.get_logger().info(f"{i+1} out of {n_pics} taken")
                     self.new_face.save_img(path + str(i) + ".jpeg", img)
                 i += 1
-                time.sleep(1)
+                time.sleep(0.3)
 
         except TimeoutError:
 
