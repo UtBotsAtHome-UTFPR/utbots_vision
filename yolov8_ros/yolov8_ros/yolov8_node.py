@@ -358,6 +358,8 @@ class YOLONode(Node, YOLODetector):
                     labels=labels # Pass your list of labels here
                 )
 
+                result.annotated_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
+
                 self.pub_detection_img.publish(
                         self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8"))
 
