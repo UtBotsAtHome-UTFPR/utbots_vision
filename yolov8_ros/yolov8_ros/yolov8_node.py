@@ -86,7 +86,7 @@ class YOLONode(Node, YOLODetector):
         self.debug=self.get_parameter('debug').get_parameter_value().bool_value
         self.enable_synchronous =self.get_parameter('enable_synchronous_startup').get_parameter_value().bool_value
 
-        YOLODetector.__init__(self)
+        YOLODetector.__init__(self, self.weights)
         self.get_logger().info(f"YOLOv8 Node initialized with device: {self.device}")
         
         # OpenCV image format conversion
