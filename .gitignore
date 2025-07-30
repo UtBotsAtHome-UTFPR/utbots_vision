@@ -5,3 +5,6 @@ virtualenv/
 yolov8_ros/setup.cfg
 yolov8_ros/yolo11n.pt
 yolo11n.pt
+
+yolov8_ros/setup.cfg
+utbots_face_recognition/setup.cfg
