@@ -9,21 +9,27 @@
 
 ### Dependencies and Build
 
+To avoid conflicts between package dependencies, we use virtual environments. Change the virtuelenv path in the `executable` field in `setup.cfg`. *Not the ideal solution, but the current one while we don't use Docker*.
+
 If you haven't installed `virtualenv`:
 ```bash
 pip3 install virtualenv
 ```
 
-In the package directory:
+Create and activate env:
 ```bash
-python -m virtualenv .venv
-source .venv/bin/activate
-pip3 install -r requirements.txt
-cd ../..
-colcon build --symlink-install
+python -m virtualenv <env_path>
+source <env_path>/bin/activate
 ```
 
-Change the username and workspace name if needed in `setup.cfg`. *Not the ideal solution, but the current one while we don't use Docker*.
+Install requirements and build:
+```bash
+pip3 install -r requirements.txt
+cd ../..
+colcon build --packages-select yolov8_ros utbots_actions utbots_srvs utbots_msgs \
+--allow-overriding utbots_msgs utbots_actions utbots_srvs \
+&& source install/setup.bash
+```
 
 ## Running
 To run the Mediapipe pose estimation node:

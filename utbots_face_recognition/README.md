@@ -4,7 +4,20 @@ Loading everything for the first time may take several seconds and subsequent la
 
 ### Dependencies
 
-This package is dependant on a series on problematic libraries combinations
+To avoid conflicts between package dependencies, we use virtual environments. Change the virtuelenv path in the `executable` field in `setup.cfg`. *Not the ideal solution, but the current one while we don't use Docker*.
+
+If you haven't installed `virtualenv`:
+```bash
+pip3 install virtualenv
+```
+
+Create and activate env:
+```bash
+python -m virtualenv <env_path>
+source <env_path>/bin/activate
+```
+
+This package is dependant on a series of problematic libraries combinations
 
 ```bash
 pip uninstall cv_bridge # just in case so it can pull from sudo apt install ros-humble-cv-bridge
@@ -12,6 +25,14 @@ pip install deepface
 pip install tf-keras
 pip install --no-cache-dir --upgrade --ignore-installed opencv-python
 pip install numpy==1.26.4 # This will say sucessfully installed numpy 2.2.1. Don't ask me but it works
+```
+
+## Build
+```bash
+cd <ros2_ws>
+colcon build --packages-select utbots_face_recognition utbots_actions utbots_srvs utbots_msgs \
+--allow-overriding utbots_msgs utbots_actions utbots_srvs \
+&& source install/setup.bash
 ```
 
 ## Running
