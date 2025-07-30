@@ -1,4 +1,4 @@
-# Utbots_face_recognition
+# utbots_face_recognition
 
 Loading everything for the first time may take several seconds and subsequent launches make take some seconds if the computer is bad, have patience.
 
@@ -17,8 +17,8 @@ pip install numpy==1.26.4 # This will say sucessfully installed numpy 2.2.1. Don
 ## Running
 
 ```bash
-ros2 launch cam_recognition.launch.py # This launches the system with usb_cam 
-ros2 launch recognition.launch.py # No camera is launched. Remember to remap the topic
+ros2 launch utbots_face_recognition cam_recognition.launch.py # This launches the system with usb_cam 
+ros2 launch utbots_face_recognition recognition.launch.py # No camera is launched. Remember to remap the topic
 ```
 
 ## Action interfaces
