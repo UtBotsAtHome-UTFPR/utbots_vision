@@ -45,7 +45,9 @@ See the dependencies installation procedure for each package accessing its READM
 ```bash
 cd <ros2_ws>
 rosdep install --from-paths src --ignore-src -r -y
-colcon build
+colcon build --packages-select mediapipe_track yolov8_ros utbots_face_recognition utbots_actions utbots_srvs utbots_msgs \
+--allow-overriding utbots_msgs utbots_actions utbots_srvs \
+&& source install/setup.bash
 ```
 
 ### Updating
