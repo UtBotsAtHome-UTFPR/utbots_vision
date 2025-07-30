@@ -1,10 +1,14 @@
 # utbots_vision
 
+![Static Badge](https://img.shields.io/badge/ROS_Foxy-Not_Tested-red)
+![Static Badge](https://img.shields.io/badge/ROS_Humble-Tested-green)
+![Static Badge](https://img.shields.io/badge/ROS_Jazzy-Not_Tested-red)
+
 This stack contains vision related packages, such as:
 
-- [mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track)
-- utbots_face_recognition
-- yolov8ros
+- **[mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track)** - person tracking, skeleton landmarks with 3D estimation
+- **utbots_face_recognition** - face training and recognition
+- **yolov8ros** - object detection
 
 And is dependant on:
 
