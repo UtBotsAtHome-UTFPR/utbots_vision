@@ -18,13 +18,6 @@ from cv_bridge import CvBridge
 from utbots_actions.action import YOLODetection, YOLOBatchDetection
 from utbots_srvs.srv import LoadModel
 
-from enum import Enum
-
-class Model(Enum):
-    coco = '~/ros2_ws/src/utbots_vision/yolov8_ros/yolo11n.pt' # Put this in a weight folder in the future
-    trained = "/path/to/trained/model"
-
-
 class YOLONode(Node, YOLODetector):
     """
     A ROS2 node that performs real-time object detection using YOLOv8 and publishes
@@ -66,7 +59,7 @@ class YOLONode(Node, YOLODetector):
         Node.__init__(self, 'yolo_node')
         
         # Set parameters
-        self.declare_parameter('weights', str(Model.coco)) # Create a weight folder and put this in it
+        self.declare_parameter('weights', 'yolo11n.pt') # Create a weight folder and put this in it
         self.declare_parameter('camera_topic', '/image_raw')
         self.declare_parameter('device', 'cuda' if torch.cuda.is_available() else 'cpu')
         self.declare_parameter('conf', 0.25)
@@ -74,8 +67,6 @@ class YOLONode(Node, YOLODetector):
         self.declare_parameter('target_categories', [])
         self.declare_parameter('debug', False)
         self.declare_parameter('enable_synchronous_startup', False)
-
-        # self.declare_parameter('callback in ms', False)
 
         self.weights = self.get_parameter('weights').get_parameter_value().string_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
@@ -86,14 +77,12 @@ class YOLONode(Node, YOLODetector):
         self.debug=self.get_parameter('debug').get_parameter_value().bool_value
         self.enable_synchronous =self.get_parameter('enable_synchronous_startup').get_parameter_value().bool_value
 
-        YOLODetector.__init__(self, self.weights)
+        YOLODetector.__init__(self, self.weights, self.device, self.conf)
         self.get_logger().info(f"YOLOv8 Node initialized with device: {self.device}")
         
         # OpenCV image format conversion
         self.bridge = CvBridge()
         self.cv_img = None
-
-        # Define ROS messages
         
         # Publishers and Subscribers
         self.pub_detection_img = self.create_publisher(Image, "/utbots/vision/detection/image", 10)
