@@ -1,3 +1,4 @@
 [submodule "mediapipe_track"]
 	path = mediapipe_track
 	url = https://github.com/UtBotsAtHome-UTFPR/mediapipe_track.git
+	branch = ros2-dev
