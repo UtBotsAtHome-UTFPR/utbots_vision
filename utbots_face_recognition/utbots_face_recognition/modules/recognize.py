@@ -55,7 +55,7 @@ class Recognize_Action():
         
         '''
 
-        backends = [
+        backends = [ # Opencv is much faster, mtcnn is the best but the slowest by far
             'opencv', 'ssd', 'dlib', 'mtcnn', 'fastmtcnn',
             'retinaface', 'mediapipe', 'yolov8', 'yolov11s',
             'yolov11n', 'yolov11m', 'yunet', 'centerface',

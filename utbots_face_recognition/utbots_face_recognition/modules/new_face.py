@@ -43,12 +43,12 @@ class PictureTaker:
         - **cropped_img**  ||  **None**
         """
 
-        backends = [
+        backends = [ # Opencv is much faster, mtcnn is the best but the slowest by far
             'opencv', 'ssd', 'dlib', 'mtcnn', 'fastmtcnn',
             'retinaface', 'mediapipe', 'yolov8', 'yolov11s',
             'yolov11n', 'yolov11m', 'yunet', 'centerface',
         ]
-        detector = backends[3] # Utilizar um desses no lugar de chamar o modelo de análise é melhor
+        detector = backends[0] # Utilizar um desses no lugar de chamar o modelo de análise é melhor
         align = True # Melhora 6% o reconhecimento (aparentemente)
 
         try:
@@ -56,12 +56,15 @@ class PictureTaker:
         except:
             return None
 
-        if len(face_objs) == 0:# I am pretty sure this will not get called because of the try catch but it's here for safety
+        if len(face_objs) == 0:# I am pretty sure this will not get called because of the try catch (enforce detection) but it's here for safety
             print("0 faces")
             return None
-        elif len(face_objs) >= 2:
-            print("Too many faces")
-            return None
+        
+        largest_face = face_objs[0]["facial_area"]
+        for face in face_objs:
+            area = face["facial_area"]
+            if area["w"] > largest_face["w"]:
+                largest_face = area
 
         area = face_objs[0]["facial_area"]
 
