@@ -66,7 +66,7 @@ class PictureTaker:
             if area["w"] > largest_face["w"]:
                 largest_face = area
 
-        area = face_objs[0]["facial_area"]
+        area = largest_face
 
         x = area["x"]
         y = area["y"]

@@ -10,7 +10,7 @@ def generate_launch_description():
             name='usb_cam',
             output='screen',
             parameters=[{
-                'video_device': '/dev/video2',
+                'video_device': '/dev/video0',
                 'framerate': 30.0,
                 'io_method': 'mmap',
                 'frame_id': 'camera',
