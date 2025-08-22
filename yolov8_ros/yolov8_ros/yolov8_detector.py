@@ -52,6 +52,7 @@ class YOLODetector():
             torch.cuda.ipc_collect()
 
     def annotate_image(self, cv_image, detections, labels = []):
+        """ Annotate detected bounding boxes with the detected objects """
         if len(labels) <= 0:
             labels = [
                     f"{self.CLASS_NAMES_DICT[class_name]} {confidence:.2f}"
@@ -78,6 +79,7 @@ class YOLODetector():
         return annotated_img
 
     def predict_detections(self, cv_image, draw = False):
+        """ Perform predictions of detected objects """
         # Check if the image is in cv format
         if not isinstance(cv_image, (np.ndarray, np.generic)):
             print(type(cv_image))

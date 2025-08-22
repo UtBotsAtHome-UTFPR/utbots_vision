@@ -131,6 +131,7 @@ class YOLONode(Node, YOLODetector):
 
         
     def callback_img(self, msg):
+        """ RBG image topic callback """
         if(self.debug):
             self.get_logger().info(f"[YOLO] Callback image")
         self.cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
@@ -142,12 +143,14 @@ class YOLONode(Node, YOLODetector):
             self.image_queue.put_nowait(self.cv_img)
 
     def enable_detection(self, request, response):
+        """ Service callback for synchronous detections """
         self.enable_synchronous = request.data
         response.success = True
         response.message = "Detection enabled" if self.enable_synchronous else "Detection disabled"
         return response
     
     def load_model_cb(self, request, response):
+        """ Load/Reload YOLO model """
         if request.data == "":
             self.enable_synchronous = False
             time.sleep(0.2)
@@ -173,6 +176,7 @@ class YOLONode(Node, YOLODetector):
         return response
 
     def format_bbox_msg(self, detections, target_categories):
+        """ Format ROS bounding box messages """
         msg_boxes = BoundingBoxes()
         if detections is None:
             return msg_boxes
@@ -197,6 +201,7 @@ class YOLONode(Node, YOLODetector):
         return msg_boxes
 
     def detection_action(self, goal_handle):
+        """ Single detection action callback"""
         self.get_logger().info('Executing YOLO detection action...')
         result = YOLODetection.Result()
         
@@ -212,7 +217,7 @@ class YOLONode(Node, YOLODetector):
             detections, annotated_img = self.predict_detections(image, self.draw)
             bboxes = self.format_bbox_msg(detections, target_categories)
             
-            result.detected_objects = bboxes
+            result.detected_objs = bboxes
 
             if self.draw:
                 result.labeled_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
@@ -228,6 +233,7 @@ class YOLONode(Node, YOLODetector):
             return result
 
     def compute_iou(self, box1, box2):
+        """ Calculate Intersecction Over Union between bounding boxes """
         # box: [xmin, ymin, xmax, ymax]
         xA = max(box1.xmin, box2.xmin)
         yA = max(box1.ymin, box2.ymin)
@@ -247,6 +253,7 @@ class YOLONode(Node, YOLODetector):
         return interArea / unionArea
 
     def batch_detection_action(self, goal_handle):
+        """ Batch Detection Action Callback """
         self.get_logger().info('Executing YOLO detection batch action...')
         result = YOLOBatchDetection.Result()
 
@@ -330,8 +337,6 @@ class YOLONode(Node, YOLODetector):
                 filtered_bboxes.bounding_boxes.append(bbox)
         result.detected_objs = filtered_bboxes
 
-        print("OK")
-
         # ----------------------------------------------------- #
         # Annotate image with all relevant bounding boxes 
         if len(filtered_bboxes.bounding_boxes) > 0:
@@ -363,6 +368,7 @@ class YOLONode(Node, YOLODetector):
         return result
 
     def main_callback(self):
+        """ Synchronous processing callback """
         if self.cv_img is not None and self.enable_synchronous:
             start_time = time.time()
 
