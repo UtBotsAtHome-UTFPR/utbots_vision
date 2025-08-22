@@ -3,6 +3,7 @@ from .yolov8_detector import YOLODetector
 import torch
 import cv2
 import queue
+from typing import List
 import supervision as sv
 import time
 import numpy as np
@@ -71,7 +72,7 @@ class YOLONode(Node, YOLODetector):
         self.weights = self.get_parameter('weights').get_parameter_value().string_value
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
         self.device = self.get_parameter('device').get_parameter_value().string_value
-        self.conf = self.get_parameter('conf').get_parameter_value().integer_value
+        self.conf = self.get_parameter('conf').get_parameter_value().double_value
         self.draw = self.get_parameter('draw').get_parameter_value().bool_value
         self.target_categories = self.get_parameter('target_categories').get_parameter_value().string_array_value
         self.debug=self.get_parameter('debug').get_parameter_value().bool_value
@@ -95,6 +96,7 @@ class YOLONode(Node, YOLODetector):
             self.callback_img,
             10
         )
+        self.image_queue = queue.Queue(maxsize=10)
 
         # Service to enable/disable synchronous processing
         self.srv_enable = self.create_service(
@@ -127,15 +129,17 @@ class YOLONode(Node, YOLODetector):
         # Timer for synchronous processing
         self.timer = self.create_timer(0.1, self.main_callback)
 
-        self.count_batch = False
-        self.got_image = False
         
     def callback_img(self, msg):
-        self.cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
         if(self.debug):
             self.get_logger().info(f"[YOLO] Callback image")
-        if self.count_batch:
-            self.got_image = True
+        self.cv_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        try:
+            self.image_queue.put_nowait(self.cv_img)
+        except queue.Full:
+            # drop the oldest image if queue is full
+            _ = self.image_queue.get_nowait()
+            self.image_queue.put_nowait(self.cv_img)
 
     def enable_detection(self, request, response):
         self.enable_synchronous = request.data
@@ -144,7 +148,6 @@ class YOLONode(Node, YOLODetector):
         return response
     
     def load_model_cb(self, request, response):
-        print(Model.coco.value)
         if request.data == "":
             self.enable_synchronous = False
             time.sleep(0.2)
@@ -163,7 +166,6 @@ class YOLONode(Node, YOLODetector):
             self.load_model(str(Model.trained))
         else:
             self.weights = request.data
-        #print(self.weights)
         
         self.enable_synchronous = reactivate
 
@@ -172,7 +174,8 @@ class YOLONode(Node, YOLODetector):
 
     def format_bbox_msg(self, detections, target_categories):
         msg_boxes = BoundingBoxes()
-
+        if detections is None:
+            return msg_boxes
         for i in range(len(detections)):
             xyxy = detections.xyxy[i]
             xyxyn = detections.data["xyxyn"][i]
@@ -193,7 +196,7 @@ class YOLONode(Node, YOLODetector):
                 msg_boxes.bounding_boxes.append(bbox)
         return msg_boxes
 
-    async def detection_action(self, goal_handle):
+    def detection_action(self, goal_handle):
         self.get_logger().info('Executing YOLO detection action...')
         result = YOLODetection.Result()
         
@@ -224,142 +227,140 @@ class YOLONode(Node, YOLODetector):
             goal_handle.abort()
             return result
 
-    async def batch_detection_action(self, goal_handle):
+    def compute_iou(self, box1, box2):
+        # box: [xmin, ymin, xmax, ymax]
+        xA = max(box1.xmin, box2.xmin)
+        yA = max(box1.ymin, box2.ymin)
+        xB = min(box1.xmax, box2.xmax)
+        yB = min(box1.ymax, box2.ymax)
+
+        interW = max(0, xB - xA)
+        interH = max(0, yB - yA)
+        interArea = interW * interH
+
+        box1Area = (box1.xmax - box1.xmin) * (box1.ymax - box1.ymin)
+        box2Area = (box2.xmax - box2.xmin) * (box2.ymax - box2.ymin)
+
+        unionArea = box1Area + box2Area - interArea
+        if unionArea == 0:
+            return 0.0
+        return interArea / unionArea
+
+    def batch_detection_action(self, goal_handle):
         self.get_logger().info('Executing YOLO detection batch action...')
         result = YOLOBatchDetection.Result()
+
         batch_size = goal_handle.request.batch_size.data
         target_categories = goal_handle.request.target_categories
-        iou_threshold = goal_handle.request.iou_threshold.data
-        support_threshold = goal_handle.request.support_threshold.data
+        self.get_logger().info(f"Target categories{target_categories}")
+        iou_thresh = goal_handle.request.iou_threshold.data
+        support_threshold = goal_handle.request.support_threshold.data  
+
         self.count_batch = True
         self.bboxes = BoundingBoxes()
-        bbox_contributors = []
-        self.get_logger().info(f"Target categories{target_categories}")
-        try:
-            if self.got_image:
-                image = self.cv_img
-                detections, annotated_img = self.predict_detections(image, False)
-                self.bboxes = self.format_bbox_msg(detections, target_categories)
-                bbox_contributors = [1 for _ in self.bboxes.bounding_boxes]
 
-            def compute_iou(box1, box2):
-                        # box: [xmin, ymin, xmax, ymax]
-                        xA = max(box1.xmin, box2.xmin)
-                        yA = max(box1.ymin, box2.ymin)
-                        xB = min(box1.xmax, box2.xmax)
-                        yB = min(box1.ymax, box2.ymax)
+        # Containers that persist across the loop
+        aggregated_bboxes: List["BoundingBox"] = []
+        contributor_counts: List[int] = [] 
 
-                        interW = max(0, xB - xA)
-                        interH = max(0, yB - yA)
-                        interArea = interW * interH
+        # Helper to add a new bbox
+        def add_bbox(bbox):
+            aggregated_bboxes.append(bbox)
+            contributor_counts.append(1)
+        for i in range(batch_size):
+            print(i)
+            try:
+                image = self.image_queue.get(timeout=2.0)  # wait up to 2s
+            except queue.Empty:
+                self.get_logger().warn("No image received in time")
+                goal_handle.abort()
+                return result
 
-                        box1Area = (box1.xmax - box1.xmin) * (box1.ymax - box1.ymin)
-                        box2Area = (box2.xmax - box2.xmin) * (box2.ymax - box2.ymin)
+            detections, annotated_img = self.predict_detections(image, False)
+            if detections is None:
+                self.get_logger().warn(f"No detections on batch index {i}")
+                continue
+            new_bboxes = self.format_bbox_msg(detections, target_categories).bounding_boxes
+            if new_bboxes is None:
+                self.get_logger().warn(f"format_bbox_msg returned None on batch index {i}")
+                continue
 
-                        unionArea = box1Area + box2Area - interArea
-                        if unionArea == 0:
-                            return 0.0
-                        return interArea / unionArea
+            # Merge new bboxes with the running aggregation according to its iou with older
+            # boxes (if it reaches the threshold, is considered the same as the one with bigger
+            # IOU, if it doesn't reach threshold for any, it is considered a new bbox)
+            for new_bbox in new_bboxes:
+                best_iou, best_idx = 0.0, -1
+                for idx, ref_bbox in enumerate(aggregated_bboxes):
+                    iou = self.compute_iou(new_bbox, ref_bbox)
+                    if iou > best_iou:
+                        best_iou, best_idx = iou, idx
 
-            i = 0     
-            while(i < batch_size):
-                if self.got_image:
-                    print(i)
-                    image = self.cv_img
-                            
-                    if image is not None:
-                        detections, annotated_img = self.predict_detections(image, False)
-                        bboxes = self.format_bbox_msg(detections, target_categories)
+                if best_iou > iou_thresh and best_idx != -1:
+                    # Merge the two boxes by averaging coordinates
+                    ref_bbox = aggregated_bboxes[best_idx]
+                    contrib = contributor_counts[best_idx] + 1
 
-                        for bbox in bboxes.bounding_boxes:
-                            max_iou = 0.0
-                            max_idx = -1
-                            for idx, ref_bbox in enumerate(self.bboxes.bounding_boxes):
-                                iou = compute_iou(bbox, ref_bbox)
-                                if iou > max_iou:
-                                    max_iou = iou
-                                    max_idx = idx
-                            if max_iou > iou_threshold and max_idx != -1:
-                                # Update bbox in self.bboxes with mean coordinates
-                                ref_bbox = self.bboxes.bounding_boxes[max_idx]
-                                n = bbox_contributors[max_idx]
-                                ref_bbox.xmin = int((ref_bbox.xmin + bbox.xmin) / 2)
-                                ref_bbox.ymin = int((ref_bbox.ymin + bbox.ymin) / 2)
-                                ref_bbox.xmax = int((ref_bbox.xmax + bbox.xmax) / 2)
-                                ref_bbox.ymax = int((ref_bbox.ymax + bbox.ymax) / 2)
-                                ref_bbox.xminn = float((ref_bbox.xminn + bbox.xminn) / 2)
-                                ref_bbox.yminn = float((ref_bbox.yminn + bbox.yminn) / 2)
-                                ref_bbox.xmaxn = float((ref_bbox.xmaxn + bbox.xmaxn) / 2)
-                                ref_bbox.ymaxn = float((ref_bbox.ymaxn + bbox.ymaxn) / 2)
-                                ref_bbox.id = bbox.id
-                                bbox_contributors[max_idx] += 1
-                            else:
-                                # Add new bbox and initialize its contributors count
-                                self.bboxes.bounding_boxes.append(bbox)
-                                bbox_contributors.append(1)
-                    i += 1
-                    self.got_image = False
-                
-            self.count_batch = False
-            bbox_contributors = [c / batch_size for c in bbox_contributors]
+                    # New absolute coordinates in integer
+                    ref_bbox.xmin = int((ref_bbox.xmin + new_bbox.xmin) // 2)
+                    ref_bbox.ymin = int((ref_bbox.ymin + new_bbox.ymin) // 2)
+                    ref_bbox.xmax = int((ref_bbox.xmax + new_bbox.xmax) // 2)
+                    ref_bbox.ymax = int((ref_bbox.ymax + new_bbox.ymax) // 2)
 
-            # Remove bboxes with contributors less than support_threshold
-            filtered_bboxes = BoundingBoxes()
-            filtered_contributors = []
-            for bbox, contrib in zip(self.bboxes.bounding_boxes, bbox_contributors):
-                if contrib >= support_threshold:
-                    filtered_bboxes.bounding_boxes.append(bbox)
-                    filtered_contributors.append(contrib)
+                    # New normalised coordinates in float 
+                    ref_bbox.xminn = float((ref_bbox.xminn + new_bbox.xminn) / 2.0)
+                    ref_bbox.yminn = float((ref_bbox.yminn + new_bbox.yminn) / 2.0)
+                    ref_bbox.xmaxn = float((ref_bbox.xmaxn + new_bbox.xmaxn) / 2.0)
+                    ref_bbox.ymaxn = float((ref_bbox.ymaxn + new_bbox.ymaxn) / 2.0)
 
+                    ref_bbox.id = new_bbox.id  # keep the latest id
+                    contributor_counts[best_idx] = contrib
+                else:
+                    # No match – add as a new bbox
+                    add_bbox(new_bbox)
+
+        # ----------------------------------------------------- #
+        # Post‑processing: normalise contributor counts, prune 
+        # only the relevant bboxes with support >= support_threshold
+        # and save as result
+        norm_counts = [c / batch_size for c in contributor_counts]
+
+        filtered_bboxes = BoundingBoxes()
+        for bbox, contrib in zip(aggregated_bboxes, norm_counts):
+            if contrib >= support_threshold:
+                filtered_bboxes.bounding_boxes.append(bbox)
+        result.detected_objs = filtered_bboxes
+
+        print("OK")
+
+        # ----------------------------------------------------- #
+        # Annotate image with all relevant bounding boxes 
+        if len(filtered_bboxes.bounding_boxes) > 0:
             xyxy_list = []
             conf_list = []
             labels = []
+            for bbox in filtered_bboxes.bounding_boxes:
+                xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
+                conf_list.append(bbox.probability)
+                class_name = bbox.id
 
-            if len(filtered_bboxes.bounding_boxes) > 0:
-                for bbox in filtered_bboxes.bounding_boxes:
-                # Prepare [xmin, ymin, xmax, ymax]
-                    xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
-                    conf_list.append(bbox.probability)
-                    # Assign numeric class ID
-                    class_name = bbox.id
+                labels.append(f"{class_name} {bbox.probability:.2f}")
 
-                    labels.append(f"{class_name} {bbox.probability:.2f}")
+            # Create Detections object from the gathered information and annotate
+            detections = sv.Detections(
+                xyxy=np.array(xyxy_list, dtype=np.float32),
+                confidence=np.array(conf_list, dtype=np.float32)
+            )
 
-                # Create Detections object (this part is correct)
-                detections = sv.Detections(
-                    xyxy=np.array(xyxy_list, dtype=np.float32),
-                    confidence=np.array(conf_list, dtype=np.float32)
-                )
+            annotated_img = self.annotate_image(self.image_queue.get(timeout=2.0), detections=detections, labels=labels)
+            annotated_img_msg = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
+            result.annotated_image = annotated_img_msg
 
-                box_annotator = sv.BoxAnnotator(color_lookup=sv.ColorLookup.INDEX)
-                label_annotator = sv.LabelAnnotator(color_lookup=sv.ColorLookup.INDEX)
+            # Publish image for visualization
+            if self.draw:
+                self.pub_detection_img.publish(annotated_img_msg)
 
-                # First, annotate the boxes
-                annotated_img = box_annotator.annotate(
-                    scene=self.cv_img.copy(), # It's good practice to work on a copy of the image
-                    detections=detections
-                )
-
-                # Then, annotate the labels on the already annotated image
-                annotated_img = label_annotator.annotate(
-                    scene=annotated_img,
-                    detections=detections,
-                    labels=labels # Pass your list of labels here
-                )
-
-                result.annotated_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
-
-                self.pub_detection_img.publish(
-                        self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8"))
-
-            result.detected_objs = filtered_bboxes
-            goal_handle.succeed()
-            return result
-
-        except Exception as e:
-            self.get_logger().error(f"Error during batch detection: {str(e)}")
-            goal_handle.abort()
-            return result
+        goal_handle.succeed()
+        return result
 
     def main_callback(self):
         if self.cv_img is not None and self.enable_synchronous:

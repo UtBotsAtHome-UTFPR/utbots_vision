@@ -51,6 +51,32 @@ class YOLODetector():
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
 
+    def annotate_image(self, cv_image, detections, labels = []):
+        if len(labels) <= 0:
+            labels = [
+                    f"{self.CLASS_NAMES_DICT[class_name]} {confidence:.2f}"
+                    for class_name, confidence
+                    in zip(detections.class_id, detections.confidence)
+                ]
+        
+        box_annotator = sv.BoxAnnotator(color_lookup=sv.ColorLookup.INDEX)
+        label_annotator = sv.LabelAnnotator(color_lookup=sv.ColorLookup.INDEX)
+
+        # First, annotate the boxes
+        annotated_img = box_annotator.annotate(
+            scene=cv_image.copy(), # It's good practice to work on a copy of the image
+            detections=detections
+        )
+
+        # Then, annotate the labels on the already annotated image
+        annotated_img = label_annotator.annotate(
+            scene=annotated_img,
+            detections=detections,
+            labels=labels # Pass your list of labels here
+        )
+
+        return annotated_img
+
     def predict_detections(self, cv_image, draw = False):
         # Check if the image is in cv format
         if not isinstance(cv_image, (np.ndarray, np.generic)):
@@ -76,13 +102,7 @@ class YOLODetector():
 
         # If draw, annotate the cv_image frame
         if draw:
-            labels = [f"{self.CLASS_NAMES_DICT[cls_id]} {conf:0.2f}" 
-            for _, _, conf, cls_id, _ in detections]
-            annotated_img = sv.BoxAnnotator().annotate(
-                scene=cv_image,
-                detections=detections,
-                labels=labels
-            )
+            annotated_img = self.annotate_image(cv_image, detections)
         else:
             annotated_img = None
 
