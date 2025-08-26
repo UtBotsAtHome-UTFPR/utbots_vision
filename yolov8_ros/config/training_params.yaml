@@ -11,7 +11,7 @@ mode: train    # train, val, predict, export, track, benchmark
 # -----------------------------------------------------------------------------
 model: null    # model path
 data: null     # data.yaml path
-epochs: 100
+epochs: 1000
 patience: 50
 batch: 16
 imgsz: 640

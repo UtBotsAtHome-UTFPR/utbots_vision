@@ -4,6 +4,8 @@ import argparse
 import yaml
 from ultralytics import YOLO
 import os
+from ament_index_python.packages import get_package_share_directory
+pkg_path = get_package_share_directory("yolov8_ros")
 
 # Define the repository and the specific file you want to download
 REPO_ID = "UTBotsAtHomeUTFPR/object_pretrained"
@@ -58,20 +60,22 @@ def setup_roboflow_dataset(config, data_path):
 
     try:
         rf = Roboflow(api_key=api_key)
-        project = rf.workspace(rf_config['workspace']).project(rf_config['project'])
+        project_name = rf_config['project']
+        project = rf.workspace(rf_config['workspace']).project(project_name)
+        version = project.version(rf_config['version'])
         
         # The download location is the parent directory of the final data_path
-        download_location = os.path.dirname(data_path)
+        download_location = os.path.join(pkg_path, "training_dir")
         os.makedirs(download_location, exist_ok=True)
         
-        print(f"Downloading version {rf_config['version']} to '{download_location}'...")
-        project.version(rf_config['version']).download("yolov11", location=download_location)
+        print(f"Downloading dataset from workspace {rf_config['workspace']}, project {project_name} and version {rf_config['version']} to '{download_location}'...")
+        dataset = version.download("yolov11", location=download_location)
         
-        if os.path.exists(data_path):
-             print("Dataset downloaded and verified successfully.")
+        if os.path.exists(download_location):
+             print(f"Dataset downloaded and verified successfully at {download_location}.")
              return True
         else:
-            print(f"Error: Download completed, but the expected data path '{data_path}' was not found.")
+            print(f"Error: Download completed, but the expected data path '{download_location}' was not found.")
             print("Please ensure the 'path' in your YAML matches the Roboflow project name (e.g., './My-Dataset-1').")
             return False
 
@@ -117,12 +121,17 @@ def main(args):
     
     # Train the model using the loaded configuration
     print("Starting YOLOv8 model training...")
+
+    train_args = train_config.copy()
+
+    # Remove the keys not set by YAMP
+    train_args.pop('model', None)  
+    train_args.pop('data', None)
+
+    # All parameters for YOLO training can and should be changed only in the configuration YAML
     results = model.train(
-        data=train_config,  # Pass the configuration dictionary
-        epochs=100,
-        imgsz=640,
-        batch=8,
-        name='training' # Name for the output folder
+        data=args.data_config, 
+        **train_args
     )
     print("Training finished!")
     print(f"Model and results are saved in the 'runs/detect/{results.save_dir}' directory.")
