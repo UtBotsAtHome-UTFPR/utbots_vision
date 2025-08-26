@@ -1,0 +1,4 @@
+TODO:
+
+In bash or Python, installs it in a standard path (need to change the scripts to stop using directly "yolo11n.p"
+because it installs it in the current directory, which results in several .pt installed when using ROS node)
