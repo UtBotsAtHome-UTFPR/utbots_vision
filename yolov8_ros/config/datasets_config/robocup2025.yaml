@@ -1,6 +1,6 @@
-train: ../../training_dir/MundialDrinks-1/train/images
-val: ../../training_dir/MundialDrinks-1/valid/images
-test: ../../training_dir/MundialDrinks-1//test/images
+train: ../../training_dir/train/images
+val: ../../training_dir/valid/images
+test: ../../training_dir/test/images
 
 nc: 6
 names: ['drinks-cofee', 'drinks-coke', 'drinks-fanta', 'drinks-kuat', 'drinks-milk', 'drinks-orange_juice']

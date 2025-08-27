@@ -4,12 +4,7 @@ import argparse
 import yaml
 from ultralytics import YOLO
 import os
-from ament_index_python.packages import get_package_share_directory
-pkg_path = get_package_share_directory("yolov8_ros")
-
-# Define the repository and the specific file you want to download
-REPO_ID = "UTBotsAtHomeUTFPR/object_pretrained"
-FILENAME = "objects_pretrained.pt"
+pkg_path = os.getcwd()
 
 def download_hf_model(repo_id, filename):
     """Downloads a model file from a Hugging Face repository if not cached."""
@@ -65,17 +60,17 @@ def setup_roboflow_dataset(config, data_path):
         version = project.version(rf_config['version'])
         
         # The download location is the parent directory of the final data_path
-        download_location = os.path.join(pkg_path, "training_dir")
-        os.makedirs(download_location, exist_ok=True)
+        os.makedirs(data_path, exist_ok=True)
         
-        print(f"Downloading dataset from workspace {rf_config['workspace']}, project {project_name} and version {rf_config['version']} to '{download_location}'...")
-        dataset = version.download("yolov11", location=download_location)
-        
-        if os.path.exists(download_location):
-             print(f"Dataset downloaded and verified successfully at {download_location}.")
+        print(f"Downloading dataset from workspace {rf_config['workspace']}, project {project_name} and version {rf_config['version']} to '{data_path}'...")
+        dataset = version.download("yolov11", location=data_path, overwrite=True)
+        print("AAAAAAAAAAAAAAAAAAAA")
+        print(dataset.location)
+        if os.path.exists(dataset.location):
+             print(f"Dataset downloaded and verified successfully at {dataset.location}.")
              return True
         else:
-            print(f"Error: Download completed, but the expected data path '{download_location}' was not found.")
+            print(f"Error: Download completed, but the expected data path '{data_path}' was not found.")
             print("Please ensure the 'path' in your YAML matches the Roboflow project name (e.g., './My-Dataset-1').")
             return False
 
@@ -95,7 +90,7 @@ def main(args):
         print(f"Error: Configuration file not found at '{args.data_config}'")
         return
 
-    dataset_path = os.path.dirname(args.data_config) + "/train"
+    dataset_path = pkg_path + "/training_dir/"
 
     try:
         with open(args.train_config, 'r') as file:
@@ -113,7 +108,7 @@ def main(args):
     if args.use_yolo_weights:
         model_path = 'yolov8n.pt'
     else:
-        model_path = download_hf_model(REPO_ID, FILENAME)
+        model_path = download_hf_model(args.pretrained_repo, args.pretrained_filename)
     if not model_path:
         return
     
@@ -124,13 +119,15 @@ def main(args):
 
     train_args = train_config.copy()
 
-    # Remove the keys not set by YAMP
+    # Remove the keys not set by YAML
     train_args.pop('model', None)  
     train_args.pop('data', None)
+    train_args.pop('project', None)
 
     # All parameters for YOLO training can and should be changed only in the configuration YAML
     results = model.train(
         data=args.data_config, 
+        project=dataset_path + "/runs/detect",
         **train_args
     )
     print("Training finished!")
@@ -154,9 +151,21 @@ if __name__ == '__main__':
         help="Path to the dataset's YAML configuration file."
     )
     parser.add_argument(
-        '--use_yolo_weights', 
+        '--pretrained-repo', 
         type=str, 
-        default=None, 
+        default="UTBotsAtHomeUTFPR/object_pretrained", 
+        help="Location of the repository inside Hugging Face containing the pretrained model."
+    )
+    parser.add_argument(
+        '--pretrained-filename', 
+        type=str, 
+        default="objects_pretrained.pt", 
+        help="Name of the file with the selected pretrained model."
+    )
+    parser.add_argument(
+        '--use_yolo_weights', 
+        type=bool, 
+        default=False, 
         help="(Optional) Uses standard yolo weights as pretrained model for fine-tuning. "
              "Recommended only if our pretrained weights are giving bad results." \
              "Will result in longer training times."

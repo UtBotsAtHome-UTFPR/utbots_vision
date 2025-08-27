@@ -67,3 +67,42 @@ With launchfiles you can specify the parameter values using any of the arguments
     If empty, all classes are allowed.
     (default: '')
 ```
+
+## Training and Validating YOLO models
+Scripts avaliable in `./utils` folder facilitate the procedures of training, validating and auto annotating with YOLO model in our custom models.
+
+### Training
+The `./utils/yolo_train.py` makes it easy to train YOLO with the followingfeatures:
+- Download and setup custom datasets annotated and stored at [Roboflow](https://roboflow.com/)with YAML file inside `./config` folder
+- Import custom model hyperparemeters defined in YAML files inside the `./config` folder
+- Train with custom pretrained models saved in [Hugging Face](https://huggingface.co/) repositories
+
+First, you need to access the profile of the owner of the dataset in RoboFlow and find the API key, then set it in your terminal with:
+
+```bash
+export ROBOFLOW_API_KEY=<your_api_key>
+```
+
+Then you can run **(if you run in a different directory than ./yolov8_ros, it might not work)**:
+```bash
+python3 utils/yolo_train.py --train-config config/training_params.yaml --data-config config/datasets_config/robocup2025.yaml --pretrained-repo UTBotsAtHomeUTFPR/object_pretrained --pretrained--filename objects_pretrained.pt # Example on RoboCup2025 dataset with our pretrained model on all competition objects 
+```
+
+To train on standard YOLO weights (if our pretrained is not good, but it will result in a longer training)>
+```bash
+python3 utils/yolo_train.py --train-config config/training_params.yaml --data-config config/datasets_config/robocup2025.yaml --use_yolo_weights # Example on RoboCup2025 dataset with standard pretrained model
+```
+
+## Validate
+
+To validate with standard YOLO validation tools:
+```bash
+yolo val model=training_dir/runs/detect/train/weights/best.pt data=training_dir/data.yaml project=./training_dir/runs/detect # Example in any model trained with our training script 
+```
+
+## Auto Annotation
+
+To infer in multiple images for auto annotation and/or visual inspection:
+```bash
+python utils/auto_annotate.py --det_model training_dir/runs/detect/train/weights/best.pt --draw training_dir/valid/images/ # Example in any model trained with our training script 
+```
