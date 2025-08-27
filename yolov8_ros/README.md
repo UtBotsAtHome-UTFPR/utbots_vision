@@ -68,7 +68,7 @@ With launchfiles you can specify the parameter values using any of the arguments
     (default: '')
 ```
 
-## Training and Validating YOLO models
+## Training, Validation and Auto Annotation with YOLO models
 Scripts avaliable in `./utils` folder facilitate the procedures of training, validating and auto annotating with YOLO model in our custom models.
 
 ### Training
@@ -83,12 +83,14 @@ First, you need to access the profile of the owner of the dataset in RoboFlow an
 export ROBOFLOW_API_KEY=<your_api_key>
 ```
 
-Then you can run **(if you run in a different directory than ./yolov8_ros, it might not work)**:
+**OBS**: if you run in a different directory than ./yolov8_ros, it might not work
+
+Then you can run:
 ```bash
 python3 utils/yolo_train.py --train-config config/training_params.yaml --data-config config/datasets_config/robocup2025.yaml --pretrained-repo UTBotsAtHomeUTFPR/object_pretrained --pretrained--filename objects_pretrained.pt # Example on RoboCup2025 dataset with our pretrained model on all competition objects 
 ```
 
-To train on standard YOLO weights (if our pretrained is not good, but it will result in a longer training)>
+To train on standard YOLO weights (do it if our pretrained is not good, for example, but it will result in a longer training)>
 ```bash
 python3 utils/yolo_train.py --train-config config/training_params.yaml --data-config config/datasets_config/robocup2025.yaml --use_yolo_weights # Example on RoboCup2025 dataset with standard pretrained model
 ```

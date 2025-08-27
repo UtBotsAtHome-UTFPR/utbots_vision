@@ -3,7 +3,5 @@ build/*
 devel/*
 yolov8_ros/setup.cfg
 yolov8_ros/yolo11n.pt
-yolo11n.pt
-training_dir
-
-yolov8_ros/setup.cfg
+yolov8_ros/training_dir
+yolov8_ros/virtualenv
