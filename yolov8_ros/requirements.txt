@@ -6,3 +6,5 @@ torch
 #==2.4.0
 numpy<2.0.0
 rospkg
+roboflow
+huggingface-hub

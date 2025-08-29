@@ -1,9 +1,10 @@
 .vscode/*
 build/*
 devel/*
-virtualenv/
 yolov8_ros/setup.cfg
 yolov8_ros/yolo11n.pt
+yolov8_ros/training_dir
+yolov8_ros/virtualenv
 yolo11n.pt
 
 yolov8_ros/setup.cfg

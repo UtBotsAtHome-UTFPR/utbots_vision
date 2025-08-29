@@ -6,7 +6,7 @@
 
 This stack contains vision related packages, such as:
 
-- **[mediapipe_track](https://github.com/UtBotsAtHome-UTFPR/mediapipe_track)** - person tracking, skeleton landmarks with 3D estimation
+- **mediapipe_track** - person tracking, skeleton landmarks with 3D estimation
 - **utbots_face_recognition** - face training and recognition
 - **yolov8ros** - object detection
 

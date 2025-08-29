@@ -1,0 +1,13 @@
+train: ../../training_dir/train/images
+val: ../../training_dir/valid/images
+test: ../../training_dir/test/images
+
+nc: 6
+names: ['drinks-cofee', 'drinks-coke', 'drinks-fanta', 'drinks-kuat', 'drinks-milk', 'drinks-orange_juice']
+
+roboflow:
+  workspace: home-7jldl
+  project: mundialdrinks
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/home-7jldl/mundialdrinks/dataset/2
