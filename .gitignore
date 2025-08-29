@@ -8,3 +8,7 @@ yolo11n.pt
 
 yolov8_ros/setup.cfg
 utbots_face_recognition/setup.cfg
+
+mediapipe_track/mediapipe_track/__pycache__
+mediapipe_track/mediapipe_track/.vscode
+mediapipe_track/mediapipe_track/log
