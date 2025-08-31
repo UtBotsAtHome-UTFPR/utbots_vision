@@ -169,6 +169,7 @@ class MediaPipeNode(Node, MediaPipePose):
         # Publish results to topic and to action
         if pose_landmarks:
             self.pub_poseLandmarks.publish(pose_landmarks)
+            action_res.skeleton_points_normalized = pose_landmarks
             
             # Only considers TorsoPoint and Drawn if requested by Goal
             if goal.get_torso_point.data:
