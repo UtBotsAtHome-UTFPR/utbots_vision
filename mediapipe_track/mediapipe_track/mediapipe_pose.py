@@ -121,7 +121,7 @@ class MediaPipePose():
                 self.mp_pose.POSE_CONNECTIONS,
                 self.mp_drawing_styles.get_default_pose_landmarks_style())
         
-        return pose_results.pose_world_landmarks, cv_image
+        return pose_results.pose_landmarks, cv_image
         
     def calculate_representative_point(self, landmarks):
         """ Calculates the midpoint of the torso, with the shoulder and hips landmarks """

@@ -221,7 +221,7 @@ class MediaPipeNode(Node, MediaPipePose):
                 self.msg_target_skeleton_img = self.cvBridge.cv2_to_imgmsg(drawn_img)
             
             # Calculate the torso point if requested
-            if torso_point:
+            if torso_point and pose_landmarks_list:
                 x, y, z = self.calculate_representative_point(pose_landmarks)
                 self.msg_target_point.point = Point()
 
