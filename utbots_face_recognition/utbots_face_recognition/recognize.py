@@ -32,6 +32,10 @@ class RecognizeAction(Node):
     def __init__(self):
         super().__init__('Recognition')
 
+        self.declare_parameter('camera_topic', '/image_raw')
+
+        self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
+
         self.bridge = CvBridge()
 
         self.new_face_as = ActionServer(
@@ -53,7 +57,7 @@ class RecognizeAction(Node):
         self.recognition = Recognize_Action()
 
 
-    def wait_for_image_message(self, topic='/image_raw', timeout=2.0):
+    def wait_for_image_message(self, timeout=2.0):
         future = Future()
 
         def callback(msg):
@@ -62,7 +66,7 @@ class RecognizeAction(Node):
 
         sub = self.create_subscription(
             Image,
-            topic,
+            self.camera_topic,
             callback,
             qos_profile_sensor_data
         )
@@ -73,7 +77,7 @@ class RecognizeAction(Node):
         if future.done():
             return future.result()
         else:
-            raise TimeoutError(f"No message received on {topic} within {timeout} seconds.")
+            raise TimeoutError(f"No message received on {self.camera_topic} within {timeout} seconds.")
         
     
     def recognition_cb(self, goal_handle):
