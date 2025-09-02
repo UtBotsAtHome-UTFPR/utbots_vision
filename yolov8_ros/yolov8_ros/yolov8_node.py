@@ -66,6 +66,7 @@ class YOLONode(Node, YOLODetector):
         self.declare_parameter('conf', 0.25)
         self.declare_parameter('draw', False)
         self.declare_parameter('target_categories', [])
+        self.declare_parameter('segmentation', False)
         self.declare_parameter('debug', False)
         self.declare_parameter('enable_synchronous_startup', False)
 
@@ -75,12 +76,13 @@ class YOLONode(Node, YOLODetector):
         self.conf = self.get_parameter('conf').get_parameter_value().double_value
         self.draw = self.get_parameter('draw').get_parameter_value().bool_value
         self.target_categories = self.get_parameter('target_categories').get_parameter_value().string_array_value
+        self.segmentation = self.get_parameter('segmentation').get_parameter_value().bool_value
         self.debug=self.get_parameter('debug').get_parameter_value().bool_value
         self.enable_synchronous =self.get_parameter('enable_synchronous_startup').get_parameter_value().bool_value
 
-        YOLODetector.__init__(self, self.weights, self.device, self.conf)
-        self.get_logger().info(f"YOLOv8 Node initialized with device: {self.device}")
-        
+        YOLODetector.__init__(self, weights=self.weights, device=self.device, conf=self.conf, segmentation=self.segmentation)
+        self.get_logger().info(f"YOLOv8 Node initialized with parameters:\n - Weights: {self.weights}\n - Device: {self.device}\n - Confidence: {self.conf}\n - Segmentation: {self.segmentation}")
+
         # OpenCV image format conversion
         self.bridge = CvBridge()
         self.cv_img = None
@@ -151,6 +153,7 @@ class YOLONode(Node, YOLODetector):
     
     def load_model_cb(self, request, response):
         """ Load/Reload YOLO model """
+        # TODO: make this work
         if request.data == "":
             self.enable_synchronous = False
             time.sleep(0.2)

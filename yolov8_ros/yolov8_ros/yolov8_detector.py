@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from ultralytics import YOLO
+from ultralytics import YOLO, SAM
 import supervision as sv
 import torch
 import gc
@@ -18,16 +18,22 @@ class YOLODetector():
     - `conf` (float)
     Confidence threshold for detecting a valid bounding box. 
     - `task` (str)
+    Task for the model, either "detect", "classify", "segment", or "pose".
+    - `segmentation` (bool)
+    Whether to enable segmentation alongside detection.
     """
-    def __init__(self, weights='yolo11n.pt', device='cuda' if torch.cuda.is_available() else 'cpu', conf=0.25, task="detect"):
+    def __init__(self, weights='yolo11n.pt', device='cuda' if torch.cuda.is_available() else 'cpu', conf=0.25, task="detect", segmentation=True):
         self.weights = weights
         self.device = device
         self.conf = conf
         self.task = task
+        self.segmentation = segmentation
         self.load_model(
             weights=self.weights,
             task=self.task
         )
+        if self.segmentation:
+            self.load_segmentation_model()
 
     def load_model(self, weights, task = None):
         """ Loads the YOLO model with the selected parameters"""
@@ -35,6 +41,10 @@ class YOLODetector():
         self.model = YOLO(weights)
         self.model.fuse()
         self.CLASS_NAMES_DICT = self.model.model.names
+
+    def load_segmentation_model(self, weights="sam2.1_b.pt"):
+        """ Loads the YOLO segmentation model"""
+        self.segmentation_model = SAM(weights)
 
     def unload_model(self):
         """ Unloads the model and stops memory usage """
@@ -91,7 +101,7 @@ class YOLODetector():
                 weights=self.weights,
                 task=self.task
             )
-            raise RuntimeWarning("The pose model is not loaded. Loading now, in runtime.")
+            raise RuntimeWarning("The model is not loaded. Loading now, in runtime.")
 
         # Predict and format detection
         results = self.model.predict(cv_image, conf=self.conf, device=self.device)
@@ -106,6 +116,30 @@ class YOLODetector():
         if draw:
             annotated_img = self.annotate_image(cv_image, detections)
         else:
-            annotated_img = None
+            annotated_img = cv_image
+
+        if self.segmentation:
+            detections, annotated_img = self.predict_segmentation(cv_image, detections, draw)
+
+        return detections, annotated_img
+    
+    def predict_segmentation(self, cv_image, detections, draw = False):
+        # Predict and format prediction
+        sam_results = self.segmentation_model.predict(cv_image, bboxes=detections.xyxy, device=self.device,verbose=False)
+        sam_masks = sam_results[0].masks.data.cpu().numpy()
+        detections.mask = sam_masks
+
+        # If draw, annotate the cv_image frame
+        if draw:
+            mask_annotator = sv.MaskAnnotator()
+
+            annotated_img = cv_image.copy()
+            
+            annotated_img = mask_annotator.annotate(
+                scene=annotated_img, 
+                detections=detections
+            )
+        else:
+            annotated_img = cv_image
 
         return detections, annotated_img
