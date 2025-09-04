@@ -88,7 +88,7 @@ class YOLODetector():
 
         return annotated_img
 
-    def predict_detections(self, cv_image, draw = False):
+    def predict_detections(self, cv_image, draw = False, disable_segm=False):
         """ Perform predictions of detected objects """
         # Check if the image is in cv format
         if not isinstance(cv_image, (np.ndarray, np.generic)):
@@ -118,7 +118,7 @@ class YOLODetector():
         else:
             annotated_img = cv_image
 
-        if self.segmentation:
+        if self.segmentation and not disable_segm:
             detections, annotated_img = self.predict_segmentation(cv_image, detections, draw)
 
         return detections, annotated_img

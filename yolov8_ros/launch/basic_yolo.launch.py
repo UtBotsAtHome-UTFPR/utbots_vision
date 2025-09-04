@@ -19,7 +19,7 @@ def generate_launch_description():
                     'target_category':'',
                     'segmentation': True,
                     'debug':False,
-                    'enable_synchronous_startup':True,
+                    'enable_synchronous_startup':False,
                   }
             ]
         ),

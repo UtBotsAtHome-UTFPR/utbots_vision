@@ -190,7 +190,8 @@ class YOLONode(Node, YOLODetector):
             cls_id = detections.class_id[i]
             if not target_categories or self.CLASS_NAMES_DICT[cls_id] in [s.data for s in target_categories]:
                 bbox = BoundingBox()
-                bbox.id = str(self.CLASS_NAMES_DICT[cls_id])
+                bbox.id = int(cls_id)
+                bbox.category = str(self.CLASS_NAMES_DICT[cls_id]) 
                 bbox.probability = float(conf)
                 bbox.xmin = int(xyxy[0])
                 bbox.ymin = int(xyxy[1])
@@ -224,6 +225,7 @@ class YOLONode(Node, YOLODetector):
 
             if self.draw:
                 result.labeled_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
+                self.pub_detection_img.publish(result.labeled_image)
             
             if target_categories != []:
                 result.success = Bool()
@@ -286,7 +288,7 @@ class YOLONode(Node, YOLODetector):
                 goal_handle.abort()
                 return result
 
-            detections, annotated_img = self.predict_detections(image, False)
+            detections, annotated_img = self.predict_detections(image, False, True)
             if detections is None:
                 self.get_logger().warn(f"No detections on batch index {i}")
                 continue
@@ -322,6 +324,7 @@ class YOLONode(Node, YOLODetector):
                     ref_bbox.xmaxn = float((ref_bbox.xmaxn + new_bbox.xmaxn) / 2.0)
                     ref_bbox.ymaxn = float((ref_bbox.ymaxn + new_bbox.ymaxn) / 2.0)
 
+                    ref_bbox.category = new_bbox.category
                     ref_bbox.id = new_bbox.id  # keep the latest id
                     contributor_counts[best_idx] = contrib
                 else:
@@ -345,21 +348,27 @@ class YOLONode(Node, YOLODetector):
         if len(filtered_bboxes.bounding_boxes) > 0:
             xyxy_list = []
             conf_list = []
+            class_list = []
             labels = []
             for bbox in filtered_bboxes.bounding_boxes:
                 xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
                 conf_list.append(bbox.probability)
-                class_name = bbox.id
+                class_list.append(bbox.id)
 
-                labels.append(f"{class_name} {bbox.probability:.2f}")
+                labels.append(f"{bbox.category} {bbox.probability:.2f}")
 
             # Create Detections object from the gathered information and annotate
             detections = sv.Detections(
                 xyxy=np.array(xyxy_list, dtype=np.float32),
-                confidence=np.array(conf_list, dtype=np.float32)
+                confidence=np.array(conf_list, dtype=np.float32),
+                class_id=np.array(class_list, dtype=np.int64)
             )
 
             annotated_img = self.annotate_image(self.image_queue.get(timeout=2.0), detections=detections, labels=labels)
+            
+            if self.segmentation:
+                detections, annotated_img = self.predict_segmentation(annotated_img, detections, self.draw)
+
             annotated_img_msg = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
             result.annotated_image = annotated_img_msg
 
