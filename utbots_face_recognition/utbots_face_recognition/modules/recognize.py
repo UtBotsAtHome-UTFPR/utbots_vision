@@ -128,7 +128,7 @@ class Recognize_Action():
             bottom = person.ymax
             left = person.xmin
             right = person.xmax
-            name = person.id
+            name = person.category
 
             # Draw a box around the face
             cv2.rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)

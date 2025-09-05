@@ -84,7 +84,7 @@ class MediaPipeNode(Node, MediaPipePose):
         self.declare_parameter('segmentation_mask', False)
         self.declare_parameter('draw_skeleton_img', True)
         self.declare_parameter('calculate_torso_point', True)
-        self.declare_parameter('rbg_topic', "/image_raw")
+        self.declare_parameter('rgb_topic', "/image_raw")
 
         self.topic_namespace = self.get_parameter('topic_namespace').get_parameter_value().string_value
         self.num_poses = self.get_parameter('num_poses').get_parameter_value().integer_value

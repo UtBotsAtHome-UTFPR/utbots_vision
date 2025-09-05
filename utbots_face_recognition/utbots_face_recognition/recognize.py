@@ -108,8 +108,8 @@ class RecognizeAction(Node):
             
             #self.get_logger().info(str(people))
 
-            bbox.id = people[i]["identity"]
-            bbox.category = "Person"
+            bbox.id = 0
+            bbox.category = people[i]["identity"]
 
             bbox.xmax = people[i]["facial_area"]["x"] + people[i]["facial_area"]["w"]
             bbox.xmin = people[i]["facial_area"]["x"]
