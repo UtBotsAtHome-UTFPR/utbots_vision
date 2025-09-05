@@ -38,7 +38,7 @@ def main(args=None):
     action_client = RecognizeActionClient()
 
     future = action_client.send_new_face_goal()
-    rclpy.spin_until_future_complete(action_client, future)
+    #future = action_client.send_recognition_goal()
 
 if __name__ == '__main__':
     main()
