@@ -18,6 +18,7 @@ from std_srvs.srv import SetBool
 from cv_bridge import CvBridge
 from utbots_actions.action import YOLODetection, YOLOBatchDetection
 from utbots_srvs.srv import LoadModel
+from geometry_msgs.msg import Polygon, Point32
 
 class YOLONode(Node, YOLODetector):
     """
@@ -203,6 +204,34 @@ class YOLONode(Node, YOLODetector):
                 bbox.ymaxn = float(xyxyn[3])
                 msg_boxes.bounding_boxes.append(bbox)
         return msg_boxes
+    
+    def format_polygon_msg(self, detections):
+        """ Format ROS polygon messages from segmentation masks """
+        # Assumes detections.mask is a list/array of binary masks (H, W)
+        # Returns a list of geometry_msgs/Polygon messages (or similar)
+
+        polygons = []
+        if detections is None or not hasattr(detections, "mask"):
+            return polygons
+
+        for mask in detections.mask:
+            # Find contours in the mask
+            contours, _ = cv2.findContours(
+            mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            for contour in contours:
+                if len(contour) < 3:
+                    continue  # Not a valid polygon
+                polygon = Polygon()
+                for pt in contour.squeeze():
+                    # pt is [x, y]
+                    point = Point32()
+                    point.x = float(pt[0])
+                    point.y = float(pt[1])
+                    point.z = 0.0
+                    polygon.points.append(point)
+                polygons.append(polygon)
+        return polygons
 
     def detection_action(self, goal_handle):
         """ Single detection action callback"""
@@ -222,6 +251,10 @@ class YOLONode(Node, YOLODetector):
             bboxes = self.format_bbox_msg(detections, target_categories)
             
             result.detected_objs = bboxes
+
+            if self.segmentation:
+                masks_msg = self.format_polygon_msg(detections)
+                result.segm_mask = masks_msg
 
             if self.draw:
                 result.labeled_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
@@ -368,6 +401,8 @@ class YOLONode(Node, YOLODetector):
             
             if self.segmentation:
                 detections, annotated_img = self.predict_segmentation(annotated_img, detections, self.draw)
+                masks_msg = self.format_polygon_msg(detections)
+                result.segm_mask = masks_msg
 
             annotated_img_msg = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
             result.annotated_image = annotated_img_msg
