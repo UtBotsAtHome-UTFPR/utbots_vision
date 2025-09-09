@@ -202,36 +202,23 @@ class YOLONode(Node, YOLODetector):
                 bbox.yminn = float(xyxyn[1])
                 bbox.xmaxn = float(xyxyn[2])
                 bbox.ymaxn = float(xyxyn[3])
+                if self.segmentation and hasattr(detections, "mask") and len(detections.mask) > i:
+                    bbox.mask = self.format_mask_msg(detections.mask[i])
                 msg_boxes.bounding_boxes.append(bbox)
         return msg_boxes
     
-    def format_polygon_msg(self, detections):
-        """ Format ROS polygon messages from segmentation masks """
-        # Assumes detections.mask is a list/array of binary masks (H, W)
-        # Returns a list of geometry_msgs/Polygon messages (or similar)
+    def format_mask_msg(self, detections):
+        """Format segmentation mask as a binary image message."""
+        # detections here is a single mask (np.ndarray), not a Detections object
+        if detections is None:
+            return None
 
-        polygons = []
-        if detections is None or not hasattr(detections, "mask"):
-            return polygons
+        # Ensure mask is uint8 and binary (0 or 1)
+        mask = (detections > 0.5).astype(np.uint8)
 
-        for mask in detections.mask:
-            # Find contours in the mask
-            contours, _ = cv2.findContours(
-            mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-            for contour in contours:
-                if len(contour) < 3:
-                    continue  # Not a valid polygon
-                polygon = Polygon()
-                for pt in contour.squeeze():
-                    # pt is [x, y]
-                    point = Point32()
-                    point.x = float(pt[0])
-                    point.y = float(pt[1])
-                    point.z = 0.0
-                    polygon.points.append(point)
-                polygons.append(polygon)
-        return polygons
+        # Convert to ROS Image message
+        mask_msg = self.bridge.cv2_to_imgmsg(mask * 255, encoding="mono8")
+        return mask_msg
 
     def detection_action(self, goal_handle):
         """ Single detection action callback"""
@@ -251,10 +238,6 @@ class YOLONode(Node, YOLODetector):
             bboxes = self.format_bbox_msg(detections, target_categories)
             
             result.detected_objs = bboxes
-
-            if self.segmentation:
-                masks_msg = self.format_polygon_msg(detections)
-                result.segm_mask = masks_msg
 
             if self.draw:
                 result.labeled_image = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
@@ -303,15 +286,7 @@ class YOLONode(Node, YOLODetector):
 
         self.count_batch = True
         self.bboxes = BoundingBoxes()
-
-        # Containers that persist across the loop
-        aggregated_bboxes: List["BoundingBox"] = []
-        contributor_counts: List[int] = [] 
-
-        # Helper to add a new bbox
-        def add_bbox(bbox):
-            aggregated_bboxes.append(bbox)
-            contributor_counts.append(1)
+        
         for i in range(batch_size):
             print(i)
             try:
@@ -325,91 +300,117 @@ class YOLONode(Node, YOLODetector):
             if detections is None:
                 self.get_logger().warn(f"No detections on batch index {i}")
                 continue
-            new_bboxes = self.format_bbox_msg(detections, target_categories).bounding_boxes
-            if new_bboxes is None:
-                self.get_logger().warn(f"format_bbox_msg returned None on batch index {i}")
+            # Convert detections to sv.Detections object for merging
+            if detections is None or len(detections.xyxy) == 0:
+                self.get_logger().warn(f"No valid detections on batch index {i}")
                 continue
 
-            # Merge new bboxes with the running aggregation according to its iou with older
-            # boxes (if it reaches the threshold, is considered the same as the one with bigger
-            # IOU, if it doesn't reach threshold for any, it is considered a new bbox)
-            for new_bbox in new_bboxes:
-                best_iou, best_idx = 0.0, -1
-                for idx, ref_bbox in enumerate(aggregated_bboxes):
-                    iou = self.compute_iou(new_bbox, ref_bbox)
-                    if iou > best_iou:
-                        best_iou, best_idx = iou, idx
+            # For the first image, initialize aggregation
+            if i == 0:
+                aggregated_detections = detections
+                contributor_counts = [1] * len(detections.xyxy)
+            else:
+                # For each new detection, try to match with existing aggregated detections
+                new_xyxy = detections.xyxy
+                new_conf = detections.confidence
+                new_class_id = detections.class_id
 
-                if best_iou > iou_thresh and best_idx != -1:
-                    # Merge the two boxes by averaging coordinates
-                    ref_bbox = aggregated_bboxes[best_idx]
-                    contrib = contributor_counts[best_idx] + 1
+                agg_xyxy = aggregated_detections.xyxy
+                agg_conf = aggregated_detections.confidence
+                agg_class_id = aggregated_detections.class_id
 
-                    # New absolute coordinates in integer
-                    ref_bbox.xmin = int((ref_bbox.xmin + new_bbox.xmin) // 2)
-                    ref_bbox.ymin = int((ref_bbox.ymin + new_bbox.ymin) // 2)
-                    ref_bbox.xmax = int((ref_bbox.xmax + new_bbox.xmax) // 2)
-                    ref_bbox.ymax = int((ref_bbox.ymax + new_bbox.ymax) // 2)
+                # Prepare lists for updated aggregation
+                updated_xyxy = []
+                updated_conf = []
+                updated_class_id = []
+                updated_counts = []
 
-                    # New normalised coordinates in float 
-                    ref_bbox.xminn = float((ref_bbox.xminn + new_bbox.xminn) / 2.0)
-                    ref_bbox.yminn = float((ref_bbox.yminn + new_bbox.yminn) / 2.0)
-                    ref_bbox.xmaxn = float((ref_bbox.xmaxn + new_bbox.xmaxn) / 2.0)
-                    ref_bbox.ymaxn = float((ref_bbox.ymaxn + new_bbox.ymaxn) / 2.0)
-
-                    ref_bbox.category = new_bbox.category
-                    ref_bbox.id = new_bbox.id  # keep the latest id
-                    contributor_counts[best_idx] = contrib
-                else:
-                    # No match – add as a new bbox
-                    add_bbox(new_bbox)
+                matched_indices = set()
+                for idx_new, (bbox_new, class_new) in enumerate(zip(new_xyxy, new_class_id)):
+                    best_iou = 0.0
+                    best_idx = -1
+                    for idx_agg, (bbox_agg, class_agg) in enumerate(zip(agg_xyxy, agg_class_id)):
+                        if class_new != class_agg:
+                            continue
+                        # Compute IoU
+                        xA = max(bbox_new[0], bbox_agg[0])
+                        yA = max(bbox_new[1], bbox_agg[1])
+                        xB = min(bbox_new[2], bbox_agg[2])
+                        yB = min(bbox_new[3], bbox_agg[3])
+                        interW = max(0, xB - xA)
+                        interH = max(0, yB - yA)
+                        interArea = interW * interH
+                        area_new = (bbox_new[2] - bbox_new[0]) * (bbox_new[3] - bbox_new[1])
+                        area_agg = (bbox_agg[2] - bbox_agg[0]) * (bbox_agg[3] - bbox_agg[1])
+                        unionArea = area_new + area_agg - interArea
+                        iou = interArea / unionArea if unionArea > 0 else 0.0
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_idx = idx_agg
+                    if best_iou > iou_thresh and best_idx != -1:
+                        # Merge: average coordinates, keep max conf, increment count
+                        merged_xyxy = (agg_xyxy[best_idx] + bbox_new) / 2.0
+                        merged_conf = max(agg_conf[best_idx], new_conf[idx_new])
+                        merged_class = class_new
+                        merged_count = contributor_counts[best_idx] + 1
+                        updated_xyxy.append(merged_xyxy)
+                        updated_conf.append(merged_conf)
+                        updated_class_id.append(merged_class)
+                        updated_counts.append(merged_count)
+                        matched_indices.add(best_idx)
+                    else:
+                        # New detection, add as is
+                        updated_xyxy.append(bbox_new)
+                        updated_conf.append(new_conf[idx_new])
+                        updated_class_id.append(class_new)
+                        updated_counts.append(1)
+                # Add unmatched previous aggregated detections
+                for idx_agg, (bbox_agg, conf_agg, class_agg, count_agg) in enumerate(
+                    zip(agg_xyxy, agg_conf, agg_class_id, contributor_counts)
+                ):
+                    if idx_agg not in matched_indices:
+                        updated_xyxy.append(bbox_agg)
+                        updated_conf.append(conf_agg)
+                        updated_class_id.append(class_agg)
+                        updated_counts.append(count_agg)
+                # Update aggregation
+                aggregated_detections = sv.Detections(
+                    xyxy=np.array(updated_xyxy, dtype=np.float32),
+                    confidence=np.array(updated_conf, dtype=np.float32),
+                    class_id=np.array(updated_class_id, dtype=np.int64)
+                )
+                contributor_counts = updated_counts
 
         # ----------------------------------------------------- #
-        # Post‑processing: normalise contributor counts, prune 
-        # only the relevant bboxes with support >= support_threshold
-        # and save as result
+        # Post‑processing: keep only detections with support >= support_threshold
         norm_counts = [c / batch_size for c in contributor_counts]
+        filtered_indices = [idx for idx, contrib in enumerate(norm_counts) if contrib >= support_threshold]
+        if len(filtered_indices) > 0:
+            filtered_detections = sv.Detections(
+                xyxy=aggregated_detections.xyxy[filtered_indices],
+                confidence=aggregated_detections.confidence[filtered_indices],
+                class_id=aggregated_detections.class_id[filtered_indices]
+            )
+        else:
+            filtered_detections = sv.Detections(
+                xyxy=np.zeros((0, 4), dtype=np.float32),
+                confidence=np.zeros((0,), dtype=np.float32),
+                class_id=np.zeros((0,), dtype=np.int64)
+            )
+        # Convert to BoundingBoxes message
+        annotated_img = self.image_queue.get(timeout=2.0)
 
-        filtered_bboxes = BoundingBoxes()
-        for bbox, contrib in zip(aggregated_bboxes, norm_counts):
-            if contrib >= support_threshold:
-                filtered_bboxes.bounding_boxes.append(bbox)
+        if self.segmentation:
+            filtered_detections, annotated_img = self.predict_segmentation(annotated_img, filtered_detections, self.draw)
+        
+        filtered_bboxes = self.format_bbox_msg(filtered_detections, target_categories)
+        annotated_img_msg = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
+        result.annotated_image = annotated_img_msg
         result.detected_objs = filtered_bboxes
 
-        # ----------------------------------------------------- #
-        # Annotate image with all relevant bounding boxes 
-        if len(filtered_bboxes.bounding_boxes) > 0:
-            xyxy_list = []
-            conf_list = []
-            class_list = []
-            labels = []
-            for bbox in filtered_bboxes.bounding_boxes:
-                xyxy_list.append([bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax])
-                conf_list.append(bbox.probability)
-                class_list.append(bbox.id)
-
-                labels.append(f"{bbox.category} {bbox.probability:.2f}")
-
-            # Create Detections object from the gathered information and annotate
-            detections = sv.Detections(
-                xyxy=np.array(xyxy_list, dtype=np.float32),
-                confidence=np.array(conf_list, dtype=np.float32),
-                class_id=np.array(class_list, dtype=np.int64)
-            )
-
-            annotated_img = self.annotate_image(self.image_queue.get(timeout=2.0), detections=detections, labels=labels)
-            
-            if self.segmentation:
-                detections, annotated_img = self.predict_segmentation(annotated_img, detections, self.draw)
-                masks_msg = self.format_polygon_msg(detections)
-                result.segm_mask = masks_msg
-
-            annotated_img_msg = self.bridge.cv2_to_imgmsg(annotated_img, encoding="bgr8")
-            result.annotated_image = annotated_img_msg
-
-            # Publish image for visualization
-            if self.draw:
-                self.pub_detection_img.publish(annotated_img_msg)
+        # Publish image for visualization
+        if self.draw:
+            self.pub_detection_img.publish(annotated_img_msg)
 
         goal_handle.succeed()
         return result
