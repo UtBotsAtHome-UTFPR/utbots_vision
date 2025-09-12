@@ -312,24 +312,27 @@ class YOLONode(Node, YOLODetector):
             else:
                 # For each new detection, try to match with existing aggregated detections
                 new_xyxy = detections.xyxy
+                new_xyxyn = detections.data["xyxyn"]
                 new_conf = detections.confidence
                 new_class_id = detections.class_id
 
                 agg_xyxy = aggregated_detections.xyxy
+                agg_xyxyn = aggregated_detections.data["xyxyn"]
                 agg_conf = aggregated_detections.confidence
                 agg_class_id = aggregated_detections.class_id
 
                 # Prepare lists for updated aggregation
                 updated_xyxy = []
+                updated_xyxyn = []
                 updated_conf = []
                 updated_class_id = []
                 updated_counts = []
 
                 matched_indices = set()
-                for idx_new, (bbox_new, class_new) in enumerate(zip(new_xyxy, new_class_id)):
+                for idx_new, (bbox_new, bboxn_new, class_new) in enumerate(zip(new_xyxy, new_xyxyn, new_class_id)):
                     best_iou = 0.0
                     best_idx = -1
-                    for idx_agg, (bbox_agg, class_agg) in enumerate(zip(agg_xyxy, agg_class_id)):
+                    for idx_agg, (bbox_agg, bboxn_agg, class_agg) in enumerate(zip(agg_xyxy, agg_xyxyn, agg_class_id)):
                         if class_new != class_agg:
                             continue
                         # Compute IoU
@@ -350,10 +353,12 @@ class YOLONode(Node, YOLODetector):
                     if best_iou > iou_thresh and best_idx != -1:
                         # Merge: average coordinates, keep max conf, increment count
                         merged_xyxy = (agg_xyxy[best_idx] + bbox_new) / 2.0
+                        merged_xyxyn = (agg_xyxyn[best_idx] + bboxn_new) / 2.0
                         merged_conf = max(agg_conf[best_idx], new_conf[idx_new])
                         merged_class = class_new
                         merged_count = contributor_counts[best_idx] + 1
                         updated_xyxy.append(merged_xyxy)
+                        updated_xyxyn.append(merged_xyxyn)
                         updated_conf.append(merged_conf)
                         updated_class_id.append(merged_class)
                         updated_counts.append(merged_count)
@@ -361,21 +366,24 @@ class YOLONode(Node, YOLODetector):
                     else:
                         # New detection, add as is
                         updated_xyxy.append(bbox_new)
+                        updated_xyxyn.append(bboxn_new)
                         updated_conf.append(new_conf[idx_new])
                         updated_class_id.append(class_new)
                         updated_counts.append(1)
                 # Add unmatched previous aggregated detections
-                for idx_agg, (bbox_agg, conf_agg, class_agg, count_agg) in enumerate(
-                    zip(agg_xyxy, agg_conf, agg_class_id, contributor_counts)
+                for idx_agg, (bbox_agg, bboxn_agg, conf_agg, class_agg, count_agg) in enumerate(
+                    zip(agg_xyxy, agg_xyxyn, agg_conf, agg_class_id, contributor_counts)
                 ):
                     if idx_agg not in matched_indices:
                         updated_xyxy.append(bbox_agg)
+                        updated_xyxyn.append(bboxn_agg)
                         updated_conf.append(conf_agg)
                         updated_class_id.append(class_agg)
                         updated_counts.append(count_agg)
                 # Update aggregation
                 aggregated_detections = sv.Detections(
                     xyxy=np.array(updated_xyxy, dtype=np.float32),
+                    data={"xyxyn": np.array(updated_xyxyn, dtype=np.float32)},
                     confidence=np.array(updated_conf, dtype=np.float32),
                     class_id=np.array(updated_class_id, dtype=np.int64)
                 )
@@ -388,12 +396,14 @@ class YOLONode(Node, YOLODetector):
         if len(filtered_indices) > 0:
             filtered_detections = sv.Detections(
                 xyxy=aggregated_detections.xyxy[filtered_indices],
+                data={"xyxyn": aggregated_detections.data["xyxyn"][filtered_indices]},
                 confidence=aggregated_detections.confidence[filtered_indices],
                 class_id=aggregated_detections.class_id[filtered_indices]
             )
         else:
             filtered_detections = sv.Detections(
                 xyxy=np.zeros((0, 4), dtype=np.float32),
+                data={"xyxyn": np.zeros((0, 4), dtype=np.float32)},
                 confidence=np.zeros((0,), dtype=np.float32),
                 class_id=np.zeros((0,), dtype=np.int64)
             )
