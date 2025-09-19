@@ -94,7 +94,7 @@ class MediaPipeNode(Node, MediaPipePose):
         self.segmentation_mask = self.get_parameter('segmentation_mask').get_parameter_value().bool_value
         self.draw_param = self.get_parameter('draw_skeleton_img').get_parameter_value().bool_value
         self.torso_param = self.get_parameter('calculate_torso_point').get_parameter_value().bool_value
-        self.rgb_topic = self.get_parameter('rbg_topic').get_parameter_value().string_value
+        self.rgb_topic = self.get_parameter('rgb_topic').get_parameter_value().string_value
         model_path = self.get_parameter('model_path').get_parameter_value().string_value
         if model_path == '':
             self.model_path=package_path + "/models/pose_landmarker_lite.task"
