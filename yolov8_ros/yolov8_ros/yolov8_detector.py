@@ -33,7 +33,7 @@ class YOLODetector():
             task=self.task
         )
         if self.segmentation:
-            self.load_segmentation_model()
+            self.load_segmentation_model(weights)
 
     def load_model(self, weights, task = None):
         """ Loads the YOLO model with the selected parameters"""
@@ -44,6 +44,7 @@ class YOLODetector():
 
     def load_segmentation_model(self, weights="sam2.1_b.pt"):
         """ Loads the YOLO segmentation model"""
+        print(weights)
         self.segmentation_model = SAM(weights)
 
     def unload_model(self):

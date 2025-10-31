@@ -32,7 +32,7 @@ class RecognizeAction(Node):
     def __init__(self):
         super().__init__('Recognition')
 
-        self.declare_parameter('camera_topic', '/image_raw')
+        self.declare_parameter('camera_topic', '/camera/camera/color/image_raw')
 
         self.camera_topic = self.get_parameter('camera_topic').get_parameter_value().string_value
 

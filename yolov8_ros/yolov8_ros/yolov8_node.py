@@ -305,6 +305,8 @@ class YOLONode(Node, YOLODetector):
                 self.get_logger().warn(f"No valid detections on batch index {i}")
                 continue
 
+            print(detections)
+
             # For the first image, initialize aggregation
             if i == 0:
                 aggregated_detections = detections
@@ -408,7 +410,7 @@ class YOLONode(Node, YOLODetector):
                 class_id=np.zeros((0,), dtype=np.int64)
             )
         # Convert to BoundingBoxes message
-        annotated_img = self.image_queue.get(timeout=2.0)
+        annotated_img = self.annotate_image(self.image_queue.get(timeout=2.0), filtered_detections)
 
         if self.segmentation:
             filtered_detections, annotated_img = self.predict_segmentation(annotated_img, filtered_detections, self.draw)
