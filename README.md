@@ -9,6 +9,7 @@ This stack contains vision related packages, such as:
 - **mediapipe_track** - person tracking, skeleton landmarks with 3D estimation
 - **utbots_face_recognition** - face training and recognition
 - **yolov8ros** - object detection
+- **intent_recognition** - waving gesture detection and pointing vector calculation
 
 And is dependant on:
 
