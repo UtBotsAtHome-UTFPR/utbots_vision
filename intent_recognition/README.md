@@ -28,11 +28,6 @@ pip install numpy<2.0.0 opencv-python mediapipe ultralytics
   colcon build --packages-select intent_recognition
 ```
 
-## Critical Fix for Virtual Environments:
-By default, colcon hardcodes #!/usr/bin/python3 into the install scripts, which ignores your virtual environment. Run this command after building to force the node to use your active python interpreter by running this in the root of your workspace:
-```bash
-sed -i 's|^#!/usr/bin/python3|#!/usr/bin/env python3|' install/intent_recognition/lib/intent_recognition/intent_server
-```
 ## Usage 
 1. Launch the Node
 ```bash
