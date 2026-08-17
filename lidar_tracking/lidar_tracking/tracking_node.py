@@ -16,6 +16,7 @@ from rclpy.action import ActionServer
 from utbots_actions.action import TrackPerson
 
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 class LidarTrackingNode(Node):
 
@@ -28,12 +29,27 @@ class LidarTrackingNode(Node):
         self.tracked_id = -1
         self.tracking_state = "WAITING"
 
+        # Current Sort trackers
+        self.current_tracks = {}
+
+        # Target selection parameter
+        self.max_angle_error = math.radians(20.0)
+
+        # Protect shared tracker state between callbacks
+        from threading import Lock
+        self.tracker_lock = Lock()
+
+        # Multithreading
+        self.scan_group = MutuallyExclusiveCallbackGroup()
+        self.action_group = MutuallyExclusiveCallbackGroup()
+
         # Action Server
         self.action_server = ActionServer(
             self,
             TrackPerson,
             'track_person',
-            self.execute_callback
+            self.execute_callback,
+            callback_group=self.action_group
         )
 
         # CONFIGURATION PARAMETERS 
@@ -69,7 +85,8 @@ class LidarTrackingNode(Node):
             LaserScan,
             self.lidar_topic,
             self.scan_callback,
-            10
+            10,
+            callback_group=self.scan_group
         )
 
         self.tracker = Sort(
@@ -121,11 +138,7 @@ class LidarTrackingNode(Node):
         return result
 
 
-    def scan_callback(self, msg):
-
-        if not self.action_active:
-            return
-        
+    def scan_callback(self, msg):        
         # RASTERIZATION (Lidar to Pixels)
         img = np.zeros((self.img_size, self.img_size), dtype=np.uint8)
         for i, range_val in enumerate(msg.ranges):
@@ -238,7 +251,8 @@ class LidarTrackingNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = LidarTrackingNode()
-    
+
+    #Multithreading
     executor = MultiThreadedExecutor(num_threads=2)
     executor.add_node(node)
 
