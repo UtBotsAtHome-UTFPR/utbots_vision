@@ -1,0 +1,14 @@
+# Goal
+float32 pan_amplitude    # Distance left/right from center (e.g., 1.0 rad)
+float32 tilt_amplitude   # Distance up/down from center (e.g., 0.6 rad)
+float32 speed            # Angular velocity (rad/s)
+float32 pause_duration   # Seconds to stop at each waypoint (e.g., 0.5)
+---
+# Result
+bool completed
+string last_stage
+---
+# Feedback
+string current_stage
+float32 current_pan
+float32 current_tilt

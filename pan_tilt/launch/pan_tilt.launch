@@ -1,0 +1,45 @@
+import os
+
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
+
+
+def generate_launch_description():
+
+    package_path = get_package_share_directory('pan_tilt')
+
+    urdf_path = os.path.join(
+        package_path,
+        'urdf',
+        'pan_tilt.urdf'
+    )
+
+    with open(urdf_path, 'r') as urdf_file:
+        robot_description = urdf_file.read()
+
+    # Publishes URDF transforms based on /joint_states
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{
+            'robot_description': robot_description,
+            'publish_frequency': 30.0
+        }]
+    )
+
+    # Your action server
+    pan_tilt_server = Node(
+        package='pan_tilt',
+        executable='pan_tilt_action_server',
+        name='pan_tilt_action_server',
+        output='screen'
+    )
+
+    return LaunchDescription([
+        robot_state_publisher,
+        pan_tilt_server
+    ])
+

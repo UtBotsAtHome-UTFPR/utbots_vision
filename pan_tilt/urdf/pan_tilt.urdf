@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<robot name="pan_tilt_unit">
+
+  <!-- Materials for RViz visualization -->
+  <material name="dark_grey">
+    <color rgba="0.2 0.2 0.2 1.0"/>
+  </material>
+  <material name="servo_blue">
+    <color rgba="0.1 0.4 0.8 1.0"/>
+  </material>
+  <material name="camera_silver">
+    <color rgba="0.75 0.75 0.75 1.0"/>
+  </material>
+
+  <!-- 1. Base Link (Fixed mount) -->
+  <link name="pan_tilt_base_link">
+    <visual>
+      <origin xyz="0 0 0.015" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.03"/>
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+  </link>
+
+  <!-- Pan Joint: Rotates around Z-axis (Yaw) -->
+  <joint name="pan_joint" type="revolute">
+    <parent link="pan_tilt_base_link"/>
+    <child link="pan_link"/>
+    <origin xyz="0 0 0.03" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.5708" upper="1.5708" effort="1.5" velocity="3.0"/>
+  </joint>
+
+  <!-- 2. Pan Link (U-bracket housing the tilt servo) -->
+  <link name="pan_link">
+    <visual>
+      <origin xyz="0 0 0.025" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.04 0.05 0.05"/>
+      </geometry>
+      <material name="servo_blue"/>
+    </visual>
+  </link>
+
+  <!-- Tilt Joint: Rotates around Y-axis (Pitch) -->
+  <joint name="tilt_joint" type="revolute">
+    <parent link="pan_link"/>
+    <child link="tilt_link"/>
+    <!-- 0.05m Z-offset matches the tilt_offset_z parameter -->
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2217" upper="1.2217" effort="1.5" velocity="3.0"/>
+  </joint>
+
+  <!-- 3. Tilt Link (Camera / sensor mount) -->
+  <link name="tilt_link">
+    <visual>
+      <origin xyz="0.015 0 0.015" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.03 0.06 0.03"/>
+      </geometry>
+      <material name="camera_silver"/>
+    </visual>
+  </link>
+
+  <!-- Optional: Standard ROS Camera Optical Frame (+Z forward, +X right, +Y down) -->
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="tilt_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0.03 0 0.015" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
+  <link name="camera_optical_frame"/>
+
+</robot>

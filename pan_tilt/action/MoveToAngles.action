@@ -1,0 +1,12 @@
+# Goal
+float32 target_pan       # Target pan in rad
+float32 target_tilt      # Target tilt in rad
+float32 speed            # Angular velocity (rad/s)
+---
+# Result
+bool success
+float32 final_pan
+float32 final_tilt
+---
+# Feedback
+float32 distance_remaining

@@ -1,0 +1,14 @@
+# Goal
+float32 min_pan          # Left limit in rad (e.g., -1.2)
+float32 max_pan          # Right limit in rad (e.g., 1.2)
+float32 tilt_angle       # Fixed tilt height during sweep (rad)
+float32 speed            # Angular velocity (rad/s)
+---
+# Result
+float32 final_pan
+float32 final_tilt
+string stop_reason
+---
+# Feedback
+float32 current_pan
+float32 current_tilt
