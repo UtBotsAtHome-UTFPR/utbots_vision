@@ -17,6 +17,22 @@ def generate_launch_description():
 
     with open(urdf_path, 'r') as urdf_file:
         robot_description = urdf_file.read()
+        
+    # Launch argument for the serial port (defaults to /dev/ttyUSB0)
+    serial_port_arg = DeclareLaunchArgument(
+        'serial_port',
+        default_value='/dev/ttyUSB0',
+        description='Serial port for the ESP32 micro-ROS agent'
+    )
+
+    # micro-ROS agent for serial communication
+    micro_ros_agent = Node(
+        package='micro_ros_agent',
+        executable='micro_ros_agent',
+        name='micro_ros_agent',
+        output='screen',
+        arguments=['serial', '--dev', LaunchConfiguration('serial_port')]
+    )
 
     # Publishes URDF transforms based on /joint_states
     robot_state_publisher = Node(

@@ -7,7 +7,7 @@ This package contains ROS 2 interfaces and control nodes for a pan-tilt mechanis
 - **ScanSequence**: executes a predefined scanning sequence combining pan and tilt movements.
 - **MoveToAngles**: moves the pan-tilt mechanism to a specified angular position.
 - **URDF integration**: publishes joint states to `/joint_states` for robot state publishing and TF updates.
-- **Micro-ROS integration**: publishes servo commands through `/servo_angles` for hardware control.
+- **Micro-ROS integration**: publishes servo commands through `/servo_angles` for hardware control. Firmware code available at `./firmware/`.
 
 ## Installation
 
@@ -73,6 +73,22 @@ source install/setup.bash
 ```
 
 ## Running
+
+### Setup Micro-ROS Firmware
+
+#### Flash Firmware
+
+**Example**: PlatformIO
+1) Install the PlatformIO IDE extension for VS Code or the PlatformIO Core CLI.
+2) Plug the ESP32 into your computer via USB. Identify the port it connects to (e.g., /dev/ttyUSB0)
+3) Navigate to the directory containing your platformio.ini and source code, then build and upload the firmware. With the PlatformIO CLI:
+
+```bash
+cd <ros2_ws>/src/pan_tilt/firmware
+pio run -t upload
+```
+#### Start the Micro ROS node
+ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyUSB0
 
 ### Launch Pan-Tilt Mechanism
 
