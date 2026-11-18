@@ -54,6 +54,23 @@ rosdep install --from-paths src --ignore-src -r -y
 > ```
 > For ROS 2 Humble, using the system Python interpreter (`/usr/bin/python3`) is recommended when building ROS interfaces.
 
+Install the `micro_ros_agent` package in your workspace (or a separate workspace):
+
+```bash
+cd <ros2_ws>/src
+git clone -b humble https://github.com
+cd <ros2_ws>
+rosdep install --from-paths src --ignore-src -y
+colcon build --packages-up-to micro_ros_setup
+source install/setup.bash
+
+ros2 run micro_ros_setup create_agent_ws.sh
+ros2 run micro_ros_setup build_agent.sh
+source install/setup.bash
+```
+
+*(Alternatively, you can install it via Snap with `sudo snap install micro-ros-agent`, though serial permissions may require extra snap interface connections).*
+
 ## Building
 
 Build the package using:
@@ -87,15 +104,47 @@ source install/setup.bash
 cd <ros2_ws>/src/pan_tilt/firmware
 pio run -t upload
 ```
-#### Start the Micro ROS node
-ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyUSB0
+
+# Setup Micro-ROS Agent & Serial Permissions
+
+#### 1. Install Micro-ROS Agent
+
+Install the `micro_ros_agent` package in your workspace (or a separate workspace):
+
+```bash
+cd <ros2_ws>/src
+git clone -b humble https://github.com
+cd <ros2_ws>
+rosdep install --from-paths src --ignore-src -y
+colcon build --packages-up-to micro_ros_setup
+source install/setup.bash
+
+ros2 run micro_ros_setup create_agent_ws.sh
+ros2 run micro_ros_setup build_agent.sh
+source install/setup.bash
+```
+
+*(Alternatively, you can install it via Snap with `sudo snap install micro-ros-agent`, though serial permissions may require extra snap interface connections).*
+
+#### Configure Serial Port Permissions
+
+Add your user to the `dialout` group to allow read/write access to USB serial devices (log out and log back in for changes to take effect):
+
+```bash
+sudo usermod -a -G dialout \$USER
+```
+
+Connect your ESP32 via USB and check which port was assigned:
+
+```bash
+ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 
 ### Launch Pan-Tilt Mechanism
 
-To launch the pan-tilt mechanism, including its action server and robot state publisher:
+To launch the pan-tilt mechanism, including its action server and robot state publisher and micro_ros node (required connected ESP to the specified port):
 
 ```bash
-ros2 launch pan_tilt pan_tilt.launch
+ros2 launch pan_tilt pan_tilt.launch serial_port:=/dev/ttyUSB0
 ```
 
 The action server provides four actions for controlling the mechanism.
