@@ -105,27 +105,6 @@ cd <ros2_ws>/src/pan_tilt/firmware
 pio run -t upload
 ```
 
-# Setup Micro-ROS Agent & Serial Permissions
-
-#### 1. Install Micro-ROS Agent
-
-Install the `micro_ros_agent` package in your workspace (or a separate workspace):
-
-```bash
-cd <ros2_ws>/src
-git clone -b humble https://github.com
-cd <ros2_ws>
-rosdep install --from-paths src --ignore-src -y
-colcon build --packages-up-to micro_ros_setup
-source install/setup.bash
-
-ros2 run micro_ros_setup create_agent_ws.sh
-ros2 run micro_ros_setup build_agent.sh
-source install/setup.bash
-```
-
-*(Alternatively, you can install it via Snap with `sudo snap install micro-ros-agent`, though serial permissions may require extra snap interface connections).*
-
 #### Configure Serial Port Permissions
 
 Add your user to the `dialout` group to allow read/write access to USB serial devices (log out and log back in for changes to take effect):
