@@ -123,7 +123,7 @@ ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 To launch the pan-tilt mechanism, including its action server and robot state publisher and micro_ros node (required connected ESP to the specified port):
 
 ```bash
-ros2 launch pan_tilt pan_tilt.launch serial_port:=/dev/ttyUSB0
+ros2 launch pan_tilt pan_tilt.launch.py serial_port:=/dev/ttyUSB0
 ```
 
 The action server provides four actions for controlling the mechanism.
