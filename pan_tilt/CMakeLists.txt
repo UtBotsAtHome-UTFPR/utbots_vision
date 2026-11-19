@@ -33,6 +33,12 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Install rviz files
+install(
+  DIRECTORY rviz
+  DESTINATION share/${PROJECT_NAME}
+)
+
 ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()

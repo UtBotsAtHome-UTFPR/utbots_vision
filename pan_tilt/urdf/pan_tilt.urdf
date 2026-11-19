@@ -1,5 +1,53 @@
 <?xml version="1.0"?>
-<robot name="pan_tilt_unit">
+<robot name="pan_tilt_unit" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Mounting offset relative to base_link (in meters) -->
+  <xacro:property name="pt_offset_x" value="-0.25" />
+  <xacro:property name="pt_offset_y" value="0.0" />
+  <xacro:property name="pt_offset_z" value="1.26" />
+
+  <!-- 1. Base mounting plate dimensions (X, Y, Z in meters) -->
+  <xacro:property name="base_plate_x" value="0.03" />
+  <xacro:property name="base_plate_y" value="0.15" />
+  <xacro:property name="base_plate_z" value="0.01" />
+
+  <!-- 2. Static riser / pan servo housing dimensions (X, Y, Z in meters) -->
+  <xacro:property name="static_link_x" value="0.04" />
+  <xacro:property name="static_link_y" value="0.02" />
+  <xacro:property name="static_link_z" value="0.04" />
+
+  <!-- 3. Pan bracket dimensions (X, Y, Z in meters) -->
+  <xacro:property name="pan_link_x" value="0.04" />
+  <xacro:property name="pan_link_y" value="0.04" />
+  <xacro:property name="pan_link_z" value="0.02" />
+  <xacro:property name="pan_joint_x_offset" value="0.01" />
+
+  <!-- 4. Tilt camera mount dimensions & pivot offset (in meters) -->
+  <xacro:property name="tilt_link_x" value="0.025" />
+  <xacro:property name="tilt_link_y" value="0.055" />
+  <xacro:property name="tilt_link_z" value="0.065" />
+  <xacro:property name="tilt_joint_x_offset" value="0.01" />
+
+  <!-- 5. Realsense dimensions -->
+  <xacro:property name="realsense_x" value="0.025" />
+  <xacro:property name="realsense_y" value="0.090" />
+  <xacro:property name="realsense_z" value="0.025" />
+
+  <!-- Joint limits and dynamics -->
+  <xacro:property name="pan_limit" value="1.5708" />
+  <xacro:property name="tilt_limit" value="1.2217" />
+  <xacro:property name="servo_effort" value="1.5" />
+  <xacro:property name="servo_velocity" value="3.0" />
+
+  <!-- Main robot base -->
+  <link name="base_link"/>
+
+  <!-- Fixed joint attaching the pan/tilt unit to the robot base -->
+  <joint name="base_to_pan_tilt_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="pan_tilt_base_link"/>
+    <origin xyz="${pt_offset_x} ${pt_offset_y} ${pt_offset_z}" rpy="0 0 0"/>
+  </joint>
 
   <!-- Materials for RViz visualization -->
   <material name="dark_grey">
@@ -12,65 +60,92 @@
     <color rgba="0.75 0.75 0.75 1.0"/>
   </material>
 
-  <!-- 1. Base Link (Fixed mount) -->
+  <!-- 1. Base Link (Mounting plate) -->
   <link name="pan_tilt_base_link">
     <visual>
-      <origin xyz="0 0 0.015" rpy="0 0 0"/>
+      <origin xyz="0 0 ${base_plate_z / 2.0}" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.035" length="0.03"/>
+        <box size="${base_plate_x} ${base_plate_y} ${base_plate_z}"/>
       </geometry>
       <material name="dark_grey"/>
     </visual>
   </link>
 
-  <!-- Pan Joint: Rotates around Z-axis (Yaw) -->
-  <joint name="pan_joint" type="revolute">
+  <!-- Fixed joint connecting base plate to the static riser -->
+  <joint name="base_to_static_joint" type="fixed">
     <parent link="pan_tilt_base_link"/>
-    <child link="pan_link"/>
-    <origin xyz="0 0 0.03" rpy="0 0 0"/>
-    <axis xyz="0 0 1"/>
-    <limit lower="-1.5708" upper="1.5708" effort="1.5" velocity="3.0"/>
+    <child link="pan_tilt_static_link"/>
+    <origin xyz="0 0 ${base_plate_z}" rpy="0 0 0"/>
   </joint>
 
-  <!-- 2. Pan Link (U-bracket housing the tilt servo) -->
-  <link name="pan_link">
+  <!-- 2. Static Link (Fixed riser / pan servo housing) -->
+  <link name="pan_tilt_static_link">
     <visual>
-      <origin xyz="0 0 0.025" rpy="0 0 0"/>
+      <origin xyz="0 0 ${static_link_z / 2.0}" rpy="0 0 0"/>
       <geometry>
-        <box size="0.04 0.05 0.05"/>
+        <box size="${static_link_x} ${static_link_y} ${static_link_z}"/>
       </geometry>
       <material name="servo_blue"/>
     </visual>
   </link>
 
-  <!-- Tilt Joint: Rotates around Y-axis (Pitch) -->
+  <!-- Pan Joint: Rotates pan_link around Z-axis (Yaw) -->
+  <joint name="pan_joint" type="revolute">
+    <parent link="pan_tilt_static_link"/>
+    <child link="pan_link"/>
+    <origin xyz="${pan_joint_x_offset} 0 ${static_link_z}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-pan_limit}" upper="${pan_limit}" effort="${servo_effort}" velocity="${servo_velocity}"/>
+  </joint>
+
+  <!-- 3. Pan Link (Rotating bracket) -->
+  <link name="pan_link">
+    <visual>
+      <origin xyz="${-pan_joint_x_offset} 0 ${pan_link_z / 2.0}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${pan_link_x} ${pan_link_y} ${pan_link_z}"/>
+      </geometry>
+      <material name="servo_blue"/>
+    </visual>
+  </link>
+
+  <!-- Tilt Joint: Centered vertically on pan_link, 1cm forward in X -->
   <joint name="tilt_joint" type="revolute">
     <parent link="pan_link"/>
     <child link="tilt_link"/>
-    <!-- 0.05m Z-offset matches the tilt_offset_z parameter -->
-    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+    <origin xyz="0 0 ${pan_link_z / 2.0}" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
-    <limit lower="-1.2217" upper="1.2217" effort="1.5" velocity="3.0"/>
+    <limit lower="${-tilt_limit}" upper="${tilt_limit}" effort="${servo_effort}" velocity="${servo_velocity}"/>
   </joint>
 
-  <!-- 3. Tilt Link (Camera / sensor mount) -->
+  <!-- 4. Tilt Link (Camera / sensor mount) -->
   <link name="tilt_link">
     <visual>
-      <origin xyz="0.015 0 0.015" rpy="0 0 0"/>
+      <origin xyz="${tilt_link_x / 2.0 - tilt_joint_x_offset} 0 ${tilt_link_z / 2.0 - pan_link_z / 2.0}" rpy="0 0 0"/>
       <geometry>
-        <box size="0.03 0.06 0.03"/>
+        <box size="${tilt_link_x} ${tilt_link_y} ${tilt_link_z}"/>
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+  </link>
+
+  <!-- Standard ROS REP-103 Camera Body Frame (+X forward, +Y left, +Z up) -->
+  <!-- Connects directly to the root frame published by realsense2_camera_node -->
+  <joint name="camera_joint" type="fixed">
+    <parent link="tilt_link"/>
+    <child link="camera_link"/>
+    <origin xyz="${tilt_link_x - tilt_joint_x_offset} 0 ${tilt_link_z - pan_link_z / 2.0 + realsense_z / 2.0}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_link">
+    <visual>
+      <!-- Shifts box backward by half its depth so its front face aligns with camera_link -->
+      <origin xyz="${-realsense_x / 2.0} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${realsense_x} ${realsense_y} ${realsense_z}"/>
       </geometry>
       <material name="camera_silver"/>
     </visual>
   </link>
-
-  <!-- Optional: Standard ROS Camera Optical Frame (+Z forward, +X right, +Y down) -->
-  <joint name="camera_optical_joint" type="fixed">
-    <parent link="tilt_link"/>
-    <child link="camera_optical_frame"/>
-    <origin xyz="0.03 0 0.015" rpy="-1.5708 0 -1.5708"/>
-  </joint>
-
-  <link name="camera_optical_frame"/>
 
 </robot>

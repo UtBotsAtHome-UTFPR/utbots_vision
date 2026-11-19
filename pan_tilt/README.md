@@ -58,8 +58,9 @@ Install the `micro_ros_agent` package in your workspace (or a separate workspace
 
 ```bash
 cd <ros2_ws>/src
-git clone -b humble https://github.com
+git clone -b humble https://github.com/micro-ROS/micro_ros_setup.git
 cd <ros2_ws>
+sudo apt update && rosdep update
 rosdep install --from-paths src --ignore-src -y
 colcon build --packages-up-to micro_ros_setup
 source install/setup.bash
